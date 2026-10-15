@@ -3,6 +3,8 @@
 A small Windows Forms app for trying out MCP servers that speak the Streamable HTTP transport.
 Built on the official [ModelContextProtocol](https://github.com/modelcontextprotocol/csharp-sdk) C# SDK.
 
+![Calling a tool (light theme)](docs/light-tool.png)
+
 ```powershell
 dotnet run --project McpClientUI.csproj               # follows the Windows light/dark setting
 dotnet run --project McpClientUI.csproj -- --theme dark
@@ -16,3 +18,18 @@ dotnet run --project McpClientUI.csproj -- --theme dark
 - **Run** calls the tool; the result shows its status and time, JSON results are colored. Calls can be cancelled.
 
 Shortcuts: `Ctrl+Enter` run, `Enter` in a field run, `Esc` cancel, `Ctrl+F` search tools, `F5` reload tools.
+
+## Screenshots
+
+| Dark theme | Server overview |
+| --- | --- |
+| ![Dark theme](docs/dark-tool.png) | ![Server overview](docs/dark-overview.png) |
+
+When the server can't be reached, the reason is shown in place:
+
+![Connection failed](docs/connection-failed.png)
+
+## Requirements
+
+- Windows 10/11 and the .NET 10 SDK.
+- An MCP server with the Streamable HTTP transport, for example the one WindowsUtils starts from its AI Chat screen.
