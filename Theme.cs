@@ -276,7 +276,7 @@ internal static class Theme
         }
     }
 
-    /// <summary>The app logo (Assetspp.ico, embedded), at the size closest to <paramref name="size"/>.</summary>
+    /// <summary>The app logo (Assets/app.ico, embedded), at the size closest to <paramref name="size"/>.</summary>
     public static Icon AppIcon(int size = 32)
     {
         using var stream = typeof(Theme).Assembly.GetManifestResourceStream("McpClientUI.app.ico")!;
