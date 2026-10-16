@@ -42,9 +42,16 @@ Every push to `main` is built by `.github/workflows/build.yml`. To publish a rel
 .\release.ps1 0.1.0
 ```
 
-It pushes a `v0.1.0` tag; `.github/workflows/release.yml` then attaches two zips to the
-[GitHub release](https://github.com/anilkay/MCPClientUI/releases):
+It pushes a `v0.1.0` tag; `.github/workflows/release.yml` then builds a self-contained single-file
+`McpClientUI.exe` (no .NET install needed, ~47 MB) and attaches it as a zip to the
+[GitHub release](https://github.com/anilkay/MCPClientUI/releases).
 
-- `McpClientUI-<version>-win-x64.zip`: self-contained `McpClientUI.exe`, no .NET install needed (~47 MB).
-- `McpClientUI-<version>-win-x64-needs-dotnet10.zip`: the same app at ~1 MB, needs the
-  [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
+## Build options
+
+| Build | Size | Needs | Command |
+| --- | --- | --- | --- |
+| Self-contained single file (what releases ship) | ~47 MB exe | nothing | `dotnet publish McpClientUI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish` |
+| Framework-dependent single file | ~2.4 MB exe (~0.8 MB zipped) | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | `dotnet publish McpClientUI.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=none -o publish` |
+
+The self-contained build can't get much smaller: Windows Forms doesn't support trimming, and the
+single file is already compressed.
