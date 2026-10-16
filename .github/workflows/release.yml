@@ -1,5 +1,6 @@
-# Builds a self-contained single-file McpClientUI.exe (no .NET runtime needed)
-# and attaches it as a zip to the GitHub release for the pushed tag.
+# Builds McpClientUI.exe twice and attaches both zips to the GitHub release for the pushed tag:
+# a self-contained single file (no .NET needed, ~47 MB) and a small framework-dependent
+# single file (~1 MB, needs the .NET 10 Desktop Runtime). WinForms can't be trimmed.
 name: Release
 
 on:
@@ -30,12 +31,22 @@ jobs:
           -p:DebugType=none
           -o publish
 
+      - name: Publish (needs .NET runtime)
+        run: >
+          dotnet publish McpClientUI.csproj
+          -c Release -r win-x64 --self-contained false
+          -p:PublishSingleFile=true
+          -p:DebugType=none
+          -o publish-fd
+
       - name: Zip
         shell: pwsh
-        run: Compress-Archive publish/McpClientUI.exe "McpClientUI-${{ github.ref_name }}-win-x64.zip"
+        run: |
+          Compress-Archive publish/McpClientUI.exe "McpClientUI-${{ github.ref_name }}-win-x64.zip"
+          Compress-Archive publish-fd/McpClientUI.exe "McpClientUI-${{ github.ref_name }}-win-x64-needs-dotnet10.zip"
 
       - name: Create release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" "McpClientUI-${{ github.ref_name }}-win-x64.zip" --title "${{ github.ref_name }}" --generate-notes
+        run: gh release create "${{ github.ref_name }}" "McpClientUI-${{ github.ref_name }}-win-x64.zip" "McpClientUI-${{ github.ref_name }}-win-x64-needs-dotnet10.zip" --title "${{ github.ref_name }}" --generate-notes
