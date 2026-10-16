@@ -33,3 +33,15 @@ When the server can't be reached, the reason is shown in place:
 
 - Windows 10/11 and the .NET 10 SDK.
 - An MCP server with the Streamable HTTP transport, for example the one WindowsUtils starts from its AI Chat screen.
+
+## Releases
+
+Every push to `main` is built by `.github/workflows/build.yml`. To publish a release, run
+
+```powershell
+.\release.ps1 0.1.0
+```
+
+It pushes a `v0.1.0` tag; `.github/workflows/release.yml` then builds a self-contained single-file
+`McpClientUI.exe` (no .NET install needed) and attaches it as a zip to the
+[GitHub release](https://github.com/anilkay/MCPClientUI/releases).
