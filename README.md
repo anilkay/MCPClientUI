@@ -11,19 +11,35 @@ dotnet run --project McpClientUI.csproj -- --theme dark
 ```
 
 - Enter the server URL (default `http://localhost:5199/mcp`) and press **Connect**. The last URL and recent URLs are remembered.
-- The left side lists the server's tools; click the server entry for its version, protocol and instructions.
-- Pick a tool to see its description, hints (read-only, open world, ...) and a form built from its input schema:
-  text and number boxes, true/false switches, JSON boxes for objects and arrays, defaults filled in, required fields checked.
-- **Raw JSON** sends hand-written arguments instead; **Schema** shows the input schema.
+- **Headers** sets a Bearer token and any other HTTP headers (API keys, ...) for that URL. They are stored encrypted
+  for your Windows account (DPAPI) in `%AppData%\McpClientUI\headers.dat`.
+- The sidebar has four tabs, all searchable:
+  - **Tools**: pick one to see its description, hints (read-only, open world, ...) and a form built from its input schema:
+    text and number boxes, true/false switches, JSON boxes for objects and arrays, defaults filled in, required fields checked.
+  - **Resources**: plain resources are read with **Read**; resource templates such as `users/{id}` get a form for their variables.
+  - **Prompts**: fill in the prompt's arguments and press **Get** to see its messages.
+  - **History**: every call with its arguments, status, time and result, kept between runs. Click one to bring back its
+    arguments and result, double-click to run it again.
+- Click the server entry for its version, protocol and instructions.
+- **Raw JSON** sends hand-written arguments instead of the form; **Schema** shows the input schema.
+- **Saved** stores the current argument values under a name (per server and tool) and loads them back later.
 - **Run** calls the tool; the result shows its status and time, JSON results are colored. Calls can be cancelled.
 
-Shortcuts: `Ctrl+Enter` run, `Enter` in a field run, `Esc` cancel, `Ctrl+F` search tools, `F5` reload tools.
+Shortcuts: `Ctrl+Enter` run, `Enter` in a field run, `Esc` cancel, `Ctrl+F` search, `F5` reload from the server.
 
 ## Screenshots
 
 | Dark theme | Server overview |
 | --- | --- |
 | ![Dark theme](docs/dark-tool.png) | ![Server overview](docs/dark-overview.png) |
+
+| Prompts | Resource templates |
+| --- | --- |
+| ![Getting a prompt](docs/prompt.png) | ![Reading a resource template](docs/resource-template.png) |
+
+| History | Request headers |
+| --- | --- |
+| ![Call history](docs/dark-history.png) | ![Bearer token and headers](docs/headers-dialog.png) |
 
 When the server can't be reached, the reason is shown in place:
 

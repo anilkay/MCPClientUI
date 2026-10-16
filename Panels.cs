@@ -4,7 +4,7 @@ using ModelContextProtocol.Client;
 
 namespace McpClientUI;
 
-/// <summary>The selected tool's name, description and hints, with the Run and Cancel buttons.</summary>
+/// <summary>The selected item's name, description and hints, with the Run (Read / Get) and Cancel buttons.</summary>
 internal sealed class ToolHeader : Card
 {
     private readonly record struct Chip(string Text, Color Fore, Color Back, string? Glyph);
@@ -32,32 +32,59 @@ internal sealed class ToolHeader : Card
     private int PadY => LogicalToDeviceUnits(18);
     private int TitleHeight => TextRenderer.MeasureText("Ag", Theme.Title, Size.Empty, TextFormatFlags.NoPadding).Height;
 
-    public void SetTool(McpClientTool tool)
+    public void SetItem(McpItem item)
     {
-        var pt = tool.ProtocolTool;
-        heading = string.IsNullOrWhiteSpace(pt.Title) ? pt.Name : pt.Title;
-        description = string.IsNullOrWhiteSpace(pt.Description) ? "This tool has no description." : pt.Description.Trim();
+        heading = item.Title ?? item.Name;
+        string kindName = item.Kind switch
+        {
+            ItemKind.Tool => "tool",
+            ItemKind.Prompt => "prompt",
+            ItemKind.ResourceTemplate => "resource template",
+            _ => "resource",
+        };
+        description = item.Description ?? $"This {kindName} has no description.";
+        RunButton.Text = item.ActionText;
 
         chips.Clear();
-        if (heading != pt.Name)
-            chips.Add(new Chip(pt.Name, Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Code));
-        if (pt.Annotations is { } a)
+        switch (item.Source)
         {
-            if (a.ReadOnlyHint == true) chips.Add(new Chip("Read-only", Theme.Success, Theme.Tint(Theme.Success, Theme.Surface), Glyphs.Check));
-            if (a.DestructiveHint == true && a.ReadOnlyHint != true) chips.Add(new Chip("Destructive", Theme.Danger, Theme.Tint(Theme.Danger, Theme.Surface), Glyphs.Warning));
-            if (a.IdempotentHint == true) chips.Add(new Chip("Idempotent", Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Refresh));
-            if (a.OpenWorldHint == true) chips.Add(new Chip("Open world", Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Globe));
+            case McpClientTool tool:
+                if (heading != tool.Name)
+                    chips.Add(new Chip(tool.Name, Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Code));
+                if (tool.ProtocolTool.Annotations is { } a)
+                {
+                    if (a.ReadOnlyHint == true) chips.Add(new Chip("Read-only", Theme.Success, Theme.Tint(Theme.Success, Theme.Surface), Glyphs.Check));
+                    if (a.DestructiveHint == true && a.ReadOnlyHint != true) chips.Add(new Chip("Destructive", Theme.Danger, Theme.Tint(Theme.Danger, Theme.Surface), Glyphs.Warning));
+                    if (a.IdempotentHint == true) chips.Add(new Chip("Idempotent", Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Refresh));
+                    if (a.OpenWorldHint == true) chips.Add(new Chip("Open world", Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Globe));
+                }
+                break;
+            case McpClientResource resource:
+                chips.Add(new Chip(resource.Uri, Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Link));
+                if (!string.IsNullOrEmpty(resource.MimeType)) chips.Add(new Chip(resource.MimeType, Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Document));
+                break;
+            case McpClientResourceTemplate template:
+                chips.Add(new Chip(template.UriTemplate, Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Link));
+                if (!string.IsNullOrEmpty(template.MimeType)) chips.Add(new Chip(template.MimeType, Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Document));
+                break;
+            case McpClientPrompt:
+                chips.Add(new Chip("Prompt", Theme.AccentText, Theme.AccentSubtle, Glyphs.Message));
+                break;
         }
 
-        var schema = pt.InputSchema;
-        int count = schema.ValueKind == JsonValueKind.Object && schema.TryGetProperty("properties", out var props) && props.ValueKind == JsonValueKind.Object
-            ? props.EnumerateObject().Count() : 0;
-        int required = schema.ValueKind == JsonValueKind.Object && schema.TryGetProperty("required", out var req) && req.ValueKind == JsonValueKind.Array
-            ? req.GetArrayLength() : 0;
-        string args = count == 0 ? "No arguments" : count == 1 ? "1 argument" : $"{count} arguments";
-        if (required > 0) args += $" · {required} required";
-        chips.Add(new Chip(args, Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Form));
+        if (item.Kind != ItemKind.Resource)
+        {
+            var schema = item.Schema;
+            int count = schema.ValueKind == JsonValueKind.Object && schema.TryGetProperty("properties", out var props) && props.ValueKind == JsonValueKind.Object
+                ? props.EnumerateObject().Count() : 0;
+            int required = schema.ValueKind == JsonValueKind.Object && schema.TryGetProperty("required", out var req) && req.ValueKind == JsonValueKind.Array
+                ? req.GetArrayLength() : 0;
+            string args = count == 0 ? "No arguments" : count == 1 ? "1 argument" : $"{count} arguments";
+            if (required > 0) args += $" · {required} required";
+            chips.Add(new Chip(args, Theme.SecondaryText, Theme.NeutralSubtle, Glyphs.Form));
+        }
 
+        PerformLayout();
         UpdateHeight();
         Invalidate();
     }
@@ -124,6 +151,14 @@ internal sealed class ResultHeader : Panel
 {
     private ResultStatus status;
     private string meta = "";
+    private string title = "Result";
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public string Title
+    {
+        get => title;
+        set { title = value; Invalidate(); }
+    }
 
     public ResultHeader()
     {
@@ -163,8 +198,8 @@ internal sealed class ResultHeader : Panel
         int x = LogicalToDeviceUnits(20);
         int top = LogicalToDeviceUnits(2);
         const TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding;
-        int titleWidth = TextRenderer.MeasureText(g, "Result", Theme.Subtitle, Size.Empty, TextFormatFlags.NoPadding).Width;
-        TextRenderer.DrawText(g, "Result", Theme.Subtitle, new Rectangle(x, top, titleWidth + 2, Height - top), Theme.Text, flags);
+        int titleWidth = TextRenderer.MeasureText(g, title, Theme.Subtitle, Size.Empty, TextFormatFlags.NoPadding).Width;
+        TextRenderer.DrawText(g, title, Theme.Subtitle, new Rectangle(x, top, titleWidth + 2, Height - top), Theme.Text, flags);
         x += titleWidth + LogicalToDeviceUnits(12);
 
         (string text, Color fore, Color back, string? glyph)? chip = status switch

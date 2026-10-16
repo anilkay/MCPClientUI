@@ -5,8 +5,10 @@ namespace McpClientUI;
 /// <summary>Remembered between runs: the server URL, recent URLs and the window layout.</summary>
 internal sealed class AppSettings
 {
-    private static readonly string FilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "McpClientUI", "settings.json");
+    public static readonly string Folder = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "McpClientUI");
+
+    private static readonly string FilePath = Path.Combine(Folder, "settings.json");
 
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true };
 
@@ -15,6 +17,11 @@ internal sealed class AppSettings
     public int[]? WindowBounds { get; set; }
     public bool Maximized { get; set; }
     public int SidebarWidth { get; set; }
+
+    /// <summary>Saved argument sets: "url|kind|key" → preset name → arguments JSON.</summary>
+    public Dictionary<string, Dictionary<string, string>> Presets { get; set; } = [];
+
+    public static string PresetKey(string url, McpItem item) => $"{url.Trim().TrimEnd('/')}|{item.Id}";
 
     public static AppSettings Load()
     {
@@ -34,7 +41,7 @@ internal sealed class AppSettings
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
+            Directory.CreateDirectory(Folder);
             File.WriteAllText(FilePath, JsonSerializer.Serialize(this, Options));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

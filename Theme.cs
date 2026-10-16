@@ -349,4 +349,11 @@ internal static class Glyphs
     public const string Code = "";
     public const string Clock = "";
     public const string Form = "";
+    public const string Key = "";
+    public const string Save = "";
+    public const string Delete = "";
+    public const string History = "";
+    public const string Document = "";
+    public const string Message = "";
+    public const string ChevronDown = "";
 }

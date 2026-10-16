@@ -1,21 +1,17 @@
 using System.ComponentModel;
-using ModelContextProtocol.Client;
 
 namespace McpClientUI;
 
-/// <summary>A list entry; <see cref="ToString"/> gives the tool name for keyboard search and accessibility.</summary>
-internal sealed record ToolItem(McpClientTool Tool)
-{
-    public override string ToString() => Tool.Name;
-}
-
-/// <summary>Owner-painted tool list: name and first line of the description, Windows 11 selection pill.</summary>
-internal sealed class ToolListBox : ListBox
+/// <summary>
+/// Owner-painted sidebar list: a bold title, a gray second line, an optional status dot and
+/// trailing text (e.g. a time), with the Windows 11 selection pill.
+/// </summary>
+internal sealed class ItemListBox : ListBox
 {
     private int hoverIndex = -1;
     private string emptyText = "";
 
-    public ToolListBox()
+    public ItemListBox()
     {
         // UserPaint + OnPaint drawing every visible item avoids the flicker of a plain owner-drawn ListBox.
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
@@ -34,6 +30,20 @@ internal sealed class ToolListBox : ListBox
     {
         get => emptyText;
         set { emptyText = value; Invalidate(); }
+    }
+
+    public void SetEntries(IEnumerable<ListEntry> entries, Func<ListEntry, bool>? select = null)
+    {
+        BeginUpdate();
+        Items.Clear();
+        int selected = -1;
+        foreach (var entry in entries)
+        {
+            int index = Items.Add(entry);
+            if (selected < 0 && select is not null && select(entry)) selected = index;
+        }
+        if (selected >= 0) SelectedIndex = selected;
+        EndUpdate();
     }
 
     protected override void OnHandleCreated(EventArgs e)
@@ -89,8 +99,8 @@ internal sealed class ToolListBox : ListBox
         if (Items.Count == 0)
         {
             if (emptyText.Length > 0)
-                TextRenderer.DrawText(g, emptyText, Theme.Caption, new Rectangle(0, LogicalToDeviceUnits(16), Width, LogicalToDeviceUnits(40)), Theme.TertiaryText,
-                    TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+                TextRenderer.DrawText(g, emptyText, Theme.Caption, new Rectangle(LogicalToDeviceUnits(8), LogicalToDeviceUnits(16), Width - LogicalToDeviceUnits(16), LogicalToDeviceUnits(60)),
+                    Theme.TertiaryText, TextFormatFlags.HorizontalCenter | TextFormatFlags.Top | TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
             return;
         }
 
@@ -99,16 +109,16 @@ internal sealed class ToolListBox : ListBox
             var bounds = GetItemRectangle(i);
             if (bounds.Top > ClientSize.Height) break;
             if (bounds.IntersectsWith(e.ClipRectangle))
-                DrawTool(g, bounds, i);
+                DrawEntry(g, bounds, i);
         }
     }
 
     private const TextFormatFlags LineFlags = TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis |
                                               TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix;
 
-    private void DrawTool(Graphics g, Rectangle bounds, int index)
+    private void DrawEntry(Graphics g, Rectangle bounds, int index)
     {
-        var tool = ((ToolItem)Items[index]).Tool;
+        var entry = (ListEntry)Items[index];
         bool selected = index == SelectedIndex;
         var r = Rectangle.Inflate(bounds, 0, -LogicalToDeviceUnits(2));
         if (selected || index == hoverIndex)
@@ -120,18 +130,24 @@ internal sealed class ToolListBox : ListBox
         }
 
         int x = r.X + LogicalToDeviceUnits(14);
-        int width = r.Right - x - LogicalToDeviceUnits(10);
-        TextRenderer.DrawText(g, tool.Name, Theme.BodyStrong, new Rectangle(x, r.Y + LogicalToDeviceUnits(9), width, LogicalToDeviceUnits(20)),
-            Theme.Text, LineFlags);
-        TextRenderer.DrawText(g, FirstLine(tool.Description), Theme.Caption, new Rectangle(x, r.Y + LogicalToDeviceUnits(30), width, LogicalToDeviceUnits(18)),
+        int right = r.Right - LogicalToDeviceUnits(10);
+        int titleTop = r.Y + LogicalToDeviceUnits(9);
+        if (entry.Dot is { } dot)
+        {
+            int size = LogicalToDeviceUnits(8);
+            Theme.FillRounded(g, new RectangleF(x, titleTop + LogicalToDeviceUnits(6), size, size), size / 2f, dot);
+            x += size + LogicalToDeviceUnits(8);
+        }
+        if (entry.Trailing is { Length: > 0 } trailing)
+        {
+            int width = TextRenderer.MeasureText(g, trailing, Theme.Caption, Size.Empty, TextFormatFlags.NoPadding).Width;
+            TextRenderer.DrawText(g, trailing, Theme.Caption, new Rectangle(right - width, titleTop + LogicalToDeviceUnits(2), width + 2, LogicalToDeviceUnits(18)),
+                Theme.TertiaryText, LineFlags);
+            right -= width + LogicalToDeviceUnits(8);
+        }
+        TextRenderer.DrawText(g, entry.Title, Theme.BodyStrong, new Rectangle(x, titleTop, right - x, LogicalToDeviceUnits(20)), Theme.Text, LineFlags);
+        int subtitleX = r.X + LogicalToDeviceUnits(14);
+        TextRenderer.DrawText(g, entry.Subtitle, Theme.Caption, new Rectangle(subtitleX, r.Y + LogicalToDeviceUnits(30), r.Right - subtitleX - LogicalToDeviceUnits(10), LogicalToDeviceUnits(18)),
             Theme.SecondaryText, LineFlags);
-    }
-
-    private static string FirstLine(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return "No description";
-        text = text.Trim();
-        int end = text.IndexOfAny(['\r', '\n']);
-        return end < 0 ? text : text[..end];
     }
 }

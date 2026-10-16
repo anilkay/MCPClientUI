@@ -150,6 +150,28 @@ internal sealed class FieldView : Control
     private static int MeasureText(string text, int width) =>
         TextRenderer.MeasureText(text, Theme.Caption, new Size(Math.Max(1, width), int.MaxValue), Wrapped).Height;
 
+    /// <summary>Shows a value (null clears the field / selects "Not set").</summary>
+    public void SetValue(JsonNode? node)
+    {
+        if (segmented is not null)
+        {
+            string? wanted = node?.ToJsonString();
+            int index = Array.FindIndex(choices, c => c?.ToJsonString() == wanted);
+            segmented.SelectedIndex = index >= 0 ? index : Required ? -1 : 0;
+        }
+        else
+        {
+            box!.Value = node switch
+            {
+                null => "",
+                JsonValue v when v.GetValueKind() == JsonValueKind.String => v.GetValue<string>(),
+                _ when Kind == FieldKind.Json => node.ToJsonString(JsonText.Pretty).ReplaceLineEndings(Environment.NewLine),
+                _ => node.ToJsonString(),
+            };
+        }
+        SetError(null);
+    }
+
     public void FocusInput()
     {
         if (box is not null) box.TextBox.Focus();
@@ -428,6 +450,15 @@ internal sealed class ArgumentEditor : Panel
             if (field.TryGetValue(showErrors: false, out var value, out var present) && present)
                 arguments[field.PropertyName] = value;
         return arguments;
+    }
+
+    /// <summary>Fills the form from an arguments object; false when it has keys the form can't show.</summary>
+    public bool SetValues(JsonObject values)
+    {
+        foreach (var field in fields)
+            field.SetValue(values.TryGetPropertyValue(field.PropertyName, out var value) ? value : null);
+        PerformLayout();
+        return values.All(kv => fields.Any(f => f.PropertyName == kv.Key));
     }
 
     public void FocusFirst()

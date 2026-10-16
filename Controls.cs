@@ -406,6 +406,7 @@ internal sealed class PivotHeader : Control
     private readonly string[] items;
     private int selected, hover = -1;
     private string? hint;
+    private Control? action;
 
     public PivotHeader(params string[] items)
     {
@@ -438,9 +439,36 @@ internal sealed class PivotHeader : Control
         set { hint = value; Invalidate(); }
     }
 
+    /// <summary>Left offset of the first item, in logical pixels.</summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public int Inset { get; set; } = 16;
+
+    /// <summary>A control shown at the right end (e.g. a button); the hint moves to its left.</summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Control? Action
+    {
+        get => action;
+        set
+        {
+            if (action is not null) Controls.Remove(action);
+            action = value;
+            if (value is not null) Controls.Add(value);
+            PerformLayout();
+            Invalidate();
+        }
+    }
+
+    protected override void OnLayout(LayoutEventArgs levent)
+    {
+        base.OnLayout(levent);
+        if (action is null) return;
+        var size = action.GetPreferredSize(Size.Empty);
+        action.SetBounds(Width - LogicalToDeviceUnits(10) - size.Width, (Height - size.Height) / 2 - 1, size.Width, size.Height);
+    }
+
     private Rectangle ItemBounds(int index)
     {
-        int x = LogicalToDeviceUnits(16);
+        int x = LogicalToDeviceUnits(Inset);
         for (int i = 0; i < index; i++)
             x += TextRenderer.MeasureText(items[i], Theme.BodyStrong).Width + LogicalToDeviceUnits(12);
         return new Rectangle(x, 0, TextRenderer.MeasureText(items[index], Theme.BodyStrong).Width, Height);
@@ -507,7 +535,8 @@ internal sealed class PivotHeader : Control
         {
             var last = ItemBounds(items.Length - 1);
             int left = last.Right + LogicalToDeviceUnits(24);
-            TextRenderer.DrawText(g, hint, Theme.Caption, new Rectangle(left, 0, Width - left - LogicalToDeviceUnits(16), Height - LogicalToDeviceUnits(2)),
+            int right = action is { Visible: true } ? action.Left - LogicalToDeviceUnits(10) : Width - LogicalToDeviceUnits(16);
+            TextRenderer.DrawText(g, hint, Theme.Caption, new Rectangle(left, 0, Math.Max(0, right - left), Height - LogicalToDeviceUnits(2)),
                 Theme.TertiaryText, TextFormatFlags.Right | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
         }
     }
@@ -734,18 +763,19 @@ internal sealed class EmptyState : Card
 internal sealed class HeaderBar : Panel
 {
     private const string AppName = "MCP Client";
-    private readonly Control url, button, status;
+    private readonly Control url, extra, button, status;
 
-    public HeaderBar(Control url, Control button, Control status)
+    public HeaderBar(Control url, Control extra, Control button, Control status)
     {
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         this.url = url;
+        this.extra = extra;
         this.button = button;
         this.status = status;
         BackColor = Theme.Window;
         Height = LogicalToDeviceUnits(68);
-        Controls.AddRange([url, button, status]);
+        Controls.AddRange([url, extra, button, status]);
     }
 
     private int TitleRight => LogicalToDeviceUnits(20 + 32 + 12) + TextRenderer.MeasureText(AppName, Theme.AppTitle).Width;
@@ -759,8 +789,10 @@ internal sealed class HeaderBar : Panel
         status.SetBounds(Width - pad - statusSize.Width, middle - statusSize.Height / 2, statusSize.Width, statusSize.Height);
         var buttonSize = button.GetPreferredSize(Size.Empty);
         button.SetBounds(status.Left - LogicalToDeviceUnits(16) - buttonSize.Width, middle - buttonSize.Height / 2, buttonSize.Width, buttonSize.Height);
+        var extraSize = extra.GetPreferredSize(Size.Empty);
+        extra.SetBounds(button.Left - LogicalToDeviceUnits(8) - extraSize.Width, middle - extraSize.Height / 2, extraSize.Width, extraSize.Height);
         int left = TitleRight + LogicalToDeviceUnits(40);
-        int right = button.Left - LogicalToDeviceUnits(8);
+        int right = extra.Left - LogicalToDeviceUnits(8);
         url.SetBounds(left, middle - url.Height / 2, Math.Max(LogicalToDeviceUnits(160), right - left), url.Height);
     }
 
@@ -780,18 +812,23 @@ internal sealed class HeaderBar : Panel
 /// <summary>A small all-caps section title with a count and an optional button on the right.</summary>
 internal sealed class SectionHeader : Panel
 {
-    private readonly string title;
-    private readonly Control? action;
+    private string title;
     private string count = "";
 
-    public SectionHeader(string title, Control? action = null)
+    public SectionHeader(string title, params Control[] actions)
     {
         SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         this.title = title;
-        this.action = action;
         Height = LogicalToDeviceUnits(40);
-        if (action is not null) Controls.Add(action);
+        Controls.AddRange(actions);
+    }
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public string Title
+    {
+        get => title;
+        set { title = value; Invalidate(); }
     }
 
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -804,9 +841,15 @@ internal sealed class SectionHeader : Panel
     protected override void OnLayout(LayoutEventArgs levent)
     {
         base.OnLayout(levent);
-        if (action is null) return;
-        var size = action.GetPreferredSize(Size.Empty);
-        action.SetBounds(Width - size.Width, (Height - size.Height) / 2, size.Width, size.Height);
+        int right = Width;
+        foreach (Control action in Controls)
+        {
+            if (!action.Visible) continue;
+            var size = action.GetPreferredSize(Size.Empty);
+            right -= size.Width;
+            action.SetBounds(right, (Height - size.Height) / 2, size.Width, size.Height);
+            right -= LogicalToDeviceUnits(2);
+        }
     }
 
     protected override void OnPaint(PaintEventArgs e)
