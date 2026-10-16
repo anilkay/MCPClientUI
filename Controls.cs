@@ -764,6 +764,7 @@ internal sealed class HeaderBar : Panel
 {
     private const string AppName = "MCP Client";
     private readonly Control url, extra, button, status;
+    private readonly Icon logo;
 
     public HeaderBar(Control url, Control extra, Control button, Control status)
     {
@@ -771,6 +772,7 @@ internal sealed class HeaderBar : Panel
                  ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
         this.url = url;
         this.extra = extra;
+        logo = Theme.AppIcon(LogicalToDeviceUnits(32));
         this.button = button;
         this.status = status;
         BackColor = Theme.Window;
@@ -802,8 +804,7 @@ internal sealed class HeaderBar : Panel
         int pad = LogicalToDeviceUnits(20);
         int icon = LogicalToDeviceUnits(32);
         var iconBounds = new Rectangle(pad, (Height - icon) / 2, icon, icon);
-        Theme.FillRounded(g, iconBounds, LogicalToDeviceUnits(7), Theme.Accent);
-        Theme.DrawGlyph(g, Glyphs.App, 13F, iconBounds, Theme.TextOnAccent);
+        g.DrawIcon(logo, iconBounds);
         TextRenderer.DrawText(g, AppName, Theme.AppTitle, new Rectangle(iconBounds.Right + LogicalToDeviceUnits(12), 0, Width, Height - 1), Theme.Text,
             TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
     }

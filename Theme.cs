@@ -276,20 +276,11 @@ internal static class Theme
         }
     }
 
-    /// <summary>The window icon: an accent-colored rounded square with a glyph.</summary>
-    public static Icon CreateAppIcon()
+    /// <summary>The app logo (Assetspp.ico, embedded), at the size closest to <paramref name="size"/>.</summary>
+    public static Icon AppIcon(int size = 32)
     {
-        using var bitmap = new Bitmap(32, 32);
-        using (var g = Graphics.FromImage(bitmap))
-        {
-            g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
-            FillRounded(g, new RectangleF(0.5f, 0.5f, 31, 31), 7, BaseAccent);
-            using var font = new Font(IconFamily, 15F, GraphicsUnit.Pixel);
-            using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            g.DrawString(Glyphs.App, font, Brushes.White, new RectangleF(0, 1, 32, 32), format);
-        }
-        return System.Drawing.Icon.FromHandle(bitmap.GetHicon());
+        using var stream = typeof(Theme).Assembly.GetManifestResourceStream("McpClientUI.app.ico")!;
+        return new Icon(stream, size, size);
     }
 
     private static Color[]? ReadAccentPalette()

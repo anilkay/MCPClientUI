@@ -77,7 +77,7 @@ internal sealed class MainForm : Form
         Font = Theme.Body;
         BackColor = Theme.Window;
         ForeColor = Theme.Text;
-        Icon = Theme.CreateAppIcon();
+        Icon = Theme.AppIcon();
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(S(1040), S(680));
         Size = new Size(S(1320), S(860));

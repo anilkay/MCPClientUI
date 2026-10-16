@@ -1,3 +1,5 @@
+<img src="docs/logo.png" alt="MCP Client logo" width="96" align="right">
+
 # MCP Client
 
 A small Windows Forms app for trying out MCP servers that speak the Streamable HTTP transport.
