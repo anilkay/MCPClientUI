@@ -14,7 +14,7 @@ dotnet run --project McpClientUI.csproj -- --theme dark
 
 - Enter the server URL (default `http://localhost:5199/mcp`) and press **Connect**. The last URL and recent URLs are remembered.
 - For a **stdio** server, type the command that starts it instead of a URL, for example
-  `npx -y @modelcontextprotocol/server-everything`, `uvx mcp-server-time` or `C:	ools\my-server.exe --flag`.
+  `npx -y @modelcontextprotocol/server-everything`, `uvx mcp-server-time` or `C:\Tools\my-server.exe --flag`.
   The app starts the process, talks to it over stdin/stdout and stops it on Disconnect. If it fails to start,
   the last lines it wrote to stderr are shown. **Environment** (in place of Headers) sets variables such as API keys
   for that process, stored encrypted like the headers.
