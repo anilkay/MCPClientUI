@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -236,4 +237,83 @@ internal static class HeaderStore
     }
 
     private static string Normalize(string url) => url.Trim().TrimEnd('/');
+}
+
+/// <summary>
+/// What the address box points at: an http(s) URL (Streamable HTTP) or a command line that
+/// starts a stdio server, such as <c>npx -y @modelcontextprotocol/server-everything</c>.
+/// </summary>
+internal sealed class ServerTarget
+{
+    private ServerTarget(Uri? endpoint, string? command, List<string> arguments)
+    {
+        Endpoint = endpoint;
+        Command = command;
+        Arguments = arguments;
+    }
+
+    public Uri? Endpoint { get; }
+    public string? Command { get; }
+    public List<string> Arguments { get; }
+    public bool IsStdio => Command is not null;
+
+    /// <summary>Null when the text is empty or a URL that can't be used.</summary>
+    public static ServerTarget? Parse(string text)
+    {
+        text = text.Trim();
+        if (text.Length == 0) return null;
+        if (text.Contains("://"))
+        {
+            return Uri.TryCreate(text, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+                ? new ServerTarget(uri, null, [])
+                : null;
+        }
+        var parts = SplitCommandLine(text);
+        return parts.Count == 0 ? null : new ServerTarget(null, parts[0], parts.Skip(1).ToList());
+    }
+
+    /// <summary>Splits a command line the way Windows programs do (quotes and backslashes included).</summary>
+    private static List<string> SplitCommandLine(string text)
+    {
+        IntPtr argv = CommandLineToArgvW(text, out int count);
+        if (argv == IntPtr.Zero) return [];
+        try
+        {
+            var parts = new List<string>(count);
+            for (int i = 0; i < count; i++)
+                parts.Add(Marshal.PtrToStringUni(Marshal.ReadIntPtr(argv, i * IntPtr.Size)) ?? "");
+            return parts;
+        }
+        finally
+        {
+            LocalFree(argv);
+        }
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr CommandLineToArgvW(string commandLine, out int count);
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr LocalFree(IntPtr memory);
+}
+
+/// <summary>The last lines a stdio server wrote to stderr (shown when it fails to start).</summary>
+internal sealed class StderrTail
+{
+    private const int MaxLines = 15;
+    private readonly Queue<string> lines = new();
+
+    public void Add(string line)
+    {
+        lock (lines)
+        {
+            lines.Enqueue(line);
+            while (lines.Count > MaxLines) lines.Dequeue();
+        }
+    }
+
+    public string Text
+    {
+        get { lock (lines) return string.Join("\n", lines).Trim(); }
+    }
 }

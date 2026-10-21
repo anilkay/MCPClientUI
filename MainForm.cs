@@ -84,7 +84,7 @@ internal sealed class MainForm : Form
 
         // Header: app name, server URL, headers, connect button, connection status.
         urlBox.Value = settings.Url;
-        urlBox.Placeholder = "http://localhost:5199/mcp";
+        urlBox.Placeholder = "http://localhost:5199/mcp  or a stdio command, e.g. npx -y @modelcontextprotocol/server-everything";
         urlBox.TextBox.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
         urlBox.TextBox.AutoCompleteSource = AutoCompleteSource.CustomSource;
         urlBox.TextBox.AutoCompleteCustomSource.AddRange([.. settings.RecentUrls]);
@@ -329,11 +329,13 @@ internal sealed class MainForm : Form
         if (state == ConnectionState.Connecting) return;
 
         string url = urlBox.Value.Trim();
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var endpoint) ||
-            (endpoint.Scheme != Uri.UriSchemeHttp && endpoint.Scheme != Uri.UriSchemeHttps))
+        var target = ServerTarget.Parse(url);
+        if (target is null)
         {
             urlBox.HasError = true;
-            connectError = "That isn't a server address. Enter an http:// or https:// URL, for example http://localhost:5199/mcp.";
+            connectError = url.Length == 0
+                ? "Enter an http:// or https:// URL, or a command that starts a stdio server."
+                : "That isn't a valid URL. Use http:// or https://, for example http://localhost:5199/mcp.";
             SetState(ConnectionState.Failed);
             urlBox.TextBox.Focus();
             return;
@@ -342,17 +344,29 @@ internal sealed class MainForm : Form
         connectError = null;
         SetState(ConnectionState.Connecting);
         McpClient? newClient = null;
+        var stderr = new StderrTail();
+        // A stdio server may have to be downloaded first (npx, uvx), so give it longer.
+        var wait = target.IsStdio ? TimeSpan.FromSeconds(90) : TimeSpan.FromSeconds(20);
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-            var headers = HeaderStore.Get(url);
-            var transport = new HttpClientTransport(new HttpClientTransportOptions
-            {
-                Endpoint = endpoint,
-                TransportMode = HttpTransportMode.StreamableHttp,
-                Name = "MCP Client",
-                AdditionalHeaders = headers.Count > 0 ? headers : null,
-            });
+            using var timeout = new CancellationTokenSource(wait);
+            var secrets = HeaderStore.Get(url);
+            IClientTransport transport = target.IsStdio
+                ? new StdioClientTransport(new StdioClientTransportOptions
+                {
+                    Command = target.Command!,
+                    Arguments = target.Arguments,
+                    Name = "MCP Client",
+                    EnvironmentVariables = secrets.ToDictionary(kv => kv.Key, kv => (string?)kv.Value),
+                    StandardErrorLines = stderr.Add,
+                })
+                : new HttpClientTransport(new HttpClientTransportOptions
+                {
+                    Endpoint = target.Endpoint!,
+                    TransportMode = HttpTransportMode.StreamableHttp,
+                    Name = "MCP Client",
+                    AdditionalHeaders = secrets.Count > 0 ? secrets : null,
+                });
             newClient = await McpClient.CreateAsync(transport, new McpClientOptions
             {
                 ClientInfo = new Implementation { Name = "mcp-client-ui", Version = "1.0" },
@@ -377,7 +391,10 @@ internal sealed class MainForm : Form
         catch (Exception ex)
         {
             if (newClient is not null) await SafeDisposeAsync(newClient);
-            connectError = ex is OperationCanceledException ? "The server didn't answer within 20 seconds." : DescribeError(ex);
+            connectError = ex is OperationCanceledException ? $"The server didn't answer within {wait.TotalSeconds:0} seconds." : DescribeError(ex);
+            // The SDK already puts stderr into some messages (e.g. when the process exits); don't repeat it.
+            if (target.IsStdio && stderr.Text is { Length: > 0 } output && !connectError.Contains(output.Split('\n')[^1]))
+                connectError += "\n\nThe server wrote:\n" + output;
             SetState(ConnectionState.Failed);
         }
     }
@@ -515,8 +532,13 @@ internal sealed class MainForm : Form
 
     private void UpdateHeadersButton()
     {
-        int count = HeaderStore.Get(urlBox.Value.Trim()).Count;
-        headersButton.Text = count == 0 ? "Headers" : $"Headers ({count})";
+        string url = urlBox.Value.Trim();
+        int count = HeaderStore.Get(url).Count;
+        string label = ServerTarget.Parse(url)?.IsStdio == true ? "Environment" : "Headers";
+        headersButton.Text = count == 0 ? label : $"{label} ({count})";
+        toolTip.SetToolTip(headersButton, label == "Headers"
+            ? "Bearer token and other HTTP headers for this server"
+            : "Environment variables (API keys, settings) for this server's process");
         headersButton.Parent?.PerformLayout();
     }
 
@@ -528,9 +550,20 @@ internal sealed class MainForm : Form
             urlBox.HasError = true;
             return;
         }
-        using var dialog = new HeadersDialog(url, HeaderStore.Get(url));
-        if (dialog.ShowDialog(this) != DialogResult.OK) return;
-        HeaderStore.Set(url, dialog.Headers);
+        Dictionary<string, string> values;
+        if (ServerTarget.Parse(url)?.IsStdio == true)
+        {
+            using var dialog = new EnvironmentDialog(url, HeaderStore.Get(url));
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            values = dialog.Variables;
+        }
+        else
+        {
+            using var dialog = new HeadersDialog(url, HeaderStore.Get(url));
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            values = dialog.Headers;
+        }
+        HeaderStore.Set(url, values);
         UpdateHeadersButton();
 
         // Headers go into the transport, so a live connection has to be made again.
@@ -749,11 +782,13 @@ internal sealed class MainForm : Form
                 break;
             case ConnectionState.Failed:
                 emptyState.Show(Glyphs.Error, "Couldn't connect",
-                    (connectError ?? "") + "\n\nCheck that the server is running and that the URL is right.", Theme.Danger);
+                    (connectError ?? "") + (ServerTarget.Parse(urlBox.Value)?.IsStdio == true
+                        ? "\n\nCheck the command, and that it starts an MCP server that talks over stdin/stdout."
+                        : "\n\nCheck that the server is running and that the URL is right."), Theme.Danger);
                 break;
             default:
                 emptyState.Show(Glyphs.Plug, "Connect to an MCP server",
-                    "Enter the server's Streamable HTTP address above and press Connect. Its tools, resources and prompts appear on the left, and you can call any of them with your own arguments.",
+                    "Enter the server's Streamable HTTP address above, or the command that starts a stdio server (for example npx -y @modelcontextprotocol/server-everything), and press Connect. Its tools, resources and prompts appear on the left, and you can call any of them with your own arguments.",
                     Theme.Accent);
                 break;
         }

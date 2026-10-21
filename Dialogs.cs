@@ -202,3 +202,46 @@ internal sealed class HeadersDialog : FluentDialog
         return true;
     }
 }
+
+/// <summary>Environment variables for a stdio server's process (API keys, settings).</summary>
+internal sealed class EnvironmentDialog : FluentDialog
+{
+    private readonly InputBox variables = new(multiline: true, mono: true);
+
+    public EnvironmentDialog(string command, IReadOnlyDictionary<string, string> current) : base("Environment variables", "Save", 560)
+    {
+        variables.Placeholder = "API_KEY=123\r\nLOG_LEVEL=debug";
+        variables.Height = S(150);
+        variables.Value = string.Join("\r\n", current.Select(kv => $"{kv.Key}={kv.Value}"));
+
+        AddRow(CreateLabel(command, secondary: true), 12);
+        AddRow(CreateLabel("Variables", strong: true), 6);
+        AddRow(variables, 8);
+        AddRow(CreateLabel("One per line, as NAME=value. They are added to the server process's environment, saved encrypted for your Windows account.", secondary: true));
+        FitHeight();
+    }
+
+    public Dictionary<string, string> Variables { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    protected override bool TryAccept(out string? problem)
+    {
+        Variables.Clear();
+        int lineNumber = 0;
+        foreach (var line in variables.Value.Split('\n'))
+        {
+            lineNumber++;
+            string text = line.Trim();
+            if (text.Length == 0) continue;
+            int equals = text.IndexOf('=');
+            string name = equals > 0 ? text[..equals].Trim() : "";
+            if (name.Length == 0 || name.Any(char.IsWhiteSpace))
+            {
+                problem = $"Line {lineNumber} should look like NAME=value.";
+                return false;
+            }
+            Variables[name] = text[(equals + 1)..];
+        }
+        problem = null;
+        return true;
+    }
+}

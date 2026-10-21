@@ -2,7 +2,7 @@
 
 # MCP Client
 
-A small Windows Forms app for trying out MCP servers that speak the Streamable HTTP transport.
+A small Windows Forms app for trying out MCP servers, over Streamable HTTP or stdio.
 Built on the official [ModelContextProtocol](https://github.com/modelcontextprotocol/csharp-sdk) C# SDK.
 
 ![Calling a tool (light theme)](docs/light-tool.png)
@@ -13,6 +13,11 @@ dotnet run --project McpClientUI.csproj -- --theme dark
 ```
 
 - Enter the server URL (default `http://localhost:5199/mcp`) and press **Connect**. The last URL and recent URLs are remembered.
+- For a **stdio** server, type the command that starts it instead of a URL, for example
+  `npx -y @modelcontextprotocol/server-everything`, `uvx mcp-server-time` or `C:	ools\my-server.exe --flag`.
+  The app starts the process, talks to it over stdin/stdout and stops it on Disconnect. If it fails to start,
+  the last lines it wrote to stderr are shown. **Environment** (in place of Headers) sets variables such as API keys
+  for that process, stored encrypted like the headers.
 - **Headers** sets a Bearer token and any other HTTP headers (API keys, ...) for that URL. They are stored encrypted
   for your Windows account (DPAPI) in `%AppData%\McpClientUI\headers.dat`.
 - The sidebar has four tabs, all searchable:
