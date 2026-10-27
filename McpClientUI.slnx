@@ -1,3 +1,7 @@
 <Solution>
-  <Project Path="McpClientUI.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/McpClientUI.Core/McpClientUI.Core.csproj" />
+    <Project Path="src/McpClientUI/McpClientUI.csproj" />
+    <Project Path="src/McpClientUI.Avalonia/McpClientUI.Avalonia.csproj" />
+  </Folder>
 </Solution>

@@ -1,0 +1,357 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:McpClientUI.Desktop.ViewModels"
+        x:Class="McpClientUI.Desktop.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Width="1280" Height="840" MinWidth="980" MinHeight="640"
+        Icon="avares://McpClientUI.Avalonia/Assets/logo.png"
+        WindowStartupLocation="CenterScreen"
+        Title="MCP Client">
+
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+Enter" Command="{Binding RunCommand}" />
+        <KeyBinding Gesture="Meta+Enter" Command="{Binding RunCommand}" />
+        <KeyBinding Gesture="F5" Command="{Binding RefreshCommand}" />
+        <KeyBinding Gesture="Escape" Command="{Binding CancelCommand}" />
+    </Window.KeyBindings>
+
+    <Window.Styles>
+        <!-- Line icons drawn with the text color. -->
+        <Style Selector="Path.icon">
+            <Setter Property="Stroke" Value="{Binding $parent[Button].Foreground}" />
+            <Setter Property="StrokeThickness" Value="1.5" />
+            <Setter Property="StrokeLineCap" Value="Round" />
+            <Setter Property="StrokeJoin" Value="Round" />
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Ellipse.status">
+            <Setter Property="Width" Value="8" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="Fill" Value="{DynamicResource TertiaryTextBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Ellipse.status.ok">
+            <Setter Property="Fill" Value="{DynamicResource SuccessBrush}" />
+        </Style>
+        <Style Selector="Ellipse.status.failed">
+            <Setter Property="Fill" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="Ellipse.status.busy">
+            <Setter Property="Fill" Value="{DynamicResource CautionBrush}" />
+        </Style>
+        <Style Selector="Border.pill">
+            <Setter Property="Background" Value="{DynamicResource SubtleBrush}" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="12,5" />
+        </Style>
+        <Style Selector="Border.pill.ok">
+            <Setter Property="Background" Value="{DynamicResource SuccessSoftBrush}" />
+        </Style>
+        <Style Selector="Border.pill.failed">
+            <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}" />
+        </Style>
+        <Style Selector="TabStrip.pivot TabStripItem">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="MinHeight" Value="36" />
+        </Style>
+    </Window.Styles>
+
+    <DockPanel Margin="16,0,16,16">
+
+        <!-- Header: logo, address (URL or stdio command), headers/environment, connect, status. -->
+        <Grid DockPanel.Dock="Top" Height="68" ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0,32,0">
+                <Image Source="avares://McpClientUI.Avalonia/Assets/logo.png" Width="32" Height="32" />
+                <TextBlock Text="MCP Client" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,0,0" />
+            </StackPanel>
+            <AutoCompleteBox Grid.Column="1" x:Name="UrlBox" Text="{Binding Url}" ItemsSource="{Binding RecentUrls}"
+                             FilterMode="Contains" MinimumPrefixLength="0" IsEnabled="{Binding !UrlReadOnly}" VerticalAlignment="Center"
+                             PlaceholderText="http://localhost:5199/mcp  or a stdio command, e.g. npx -y @modelcontextprotocol/server-everything" />
+            <Button Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center" Command="{Binding EditSecretsCommand}" AutomationProperties.Name="{Binding SecretsButtonText}"
+                    IsEnabled="{Binding IsNotConnecting}" ToolTip.Tip="Bearer token and headers (HTTP) or environment variables (stdio)">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Path Classes="icon" Data="M 9,7 A 3.5,3.5 0 1 1 9,7.01 M 6.5,9.5 L 1,15 M 2.5,13.5 L 4,15 M 4,12 L 5.5,13.5" />
+                    <TextBlock Text="{Binding SecretsButtonText}" />
+                </StackPanel>
+            </Button>
+            <Button Grid.Column="3" Margin="8,0,0,0" MinWidth="104" VerticalAlignment="Center" HorizontalContentAlignment="Center"
+                    Classes.accent="{Binding !IsConnected}" Content="{Binding ConnectButtonText}"
+                    Command="{Binding ToggleConnectionCommand}" IsEnabled="{Binding IsNotConnecting}" />
+            <Button Grid.Column="4" Classes="subtle" Margin="12,0,0,0" Padding="0" VerticalAlignment="Center"
+                    Command="{Binding ShowOverviewCommand}" ToolTip.Tip="{Binding ConnectError}">
+                <Border Classes="pill" Classes.ok="{Binding StatusOk}" Classes.failed="{Binding StatusFailed}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Ellipse Classes="status" Classes.ok="{Binding StatusOk}" Classes.failed="{Binding StatusFailed}" Classes.busy="{Binding StatusBusy}" />
+                        <TextBlock Text="{Binding StatusText}" FontSize="12" />
+                    </StackPanel>
+                </Border>
+            </Button>
+        </Grid>
+
+        <Grid ColumnDefinitions="320,12,*">
+
+            <!-- Sidebar -->
+            <Border Classes="card" Padding="12,12,12,8">
+                <DockPanel>
+                    <TextBox DockPanel.Dock="Top" x:Name="SearchBox" Text="{Binding SearchText}" PlaceholderText="Search" Margin="0,0,0,8" />
+                    <Button DockPanel.Dock="Top" Classes="subtle" IsVisible="{Binding IsConnected}" Command="{Binding ShowOverviewCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Padding="8" ToolTip.Tip="Server overview">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Image Source="avares://McpClientUI.Avalonia/Assets/logo.png" Width="28" Height="28" />
+                            <StackPanel>
+                                <TextBlock Text="{Binding ServerTitle}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding ServerSubtitle}" Classes="muted" FontSize="12" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+                    <TabStrip DockPanel.Dock="Top" Classes="pivot" SelectedIndex="{Binding SidebarTab}" Margin="0,4,0,0">
+                        <TabStripItem Content="Tools" />
+                        <TabStripItem Content="Resources" />
+                        <TabStripItem Content="Prompts" />
+                        <TabStripItem Content="History" />
+                    </TabStrip>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,Auto,*,Auto" Margin="8,8,0,4">
+                        <TextBlock Classes="section" Text="{Binding SectionTitle}" VerticalAlignment="Center" />
+                        <Border Grid.Column="1" Classes="chip" Margin="8,0,0,0" Padding="7,1" CornerRadius="9"
+                                IsVisible="{Binding SectionCount, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="{Binding SectionCount}" FontSize="11" FontWeight="SemiBold" />
+                        </Border>
+                        <StackPanel Grid.Column="3" Orientation="Horizontal">
+                            <Button Classes="subtle" AutomationProperties.Name="Refresh" Command="{Binding RefreshCommand}" IsVisible="{Binding !IsHistoryTab}"
+                                    IsEnabled="{Binding IsConnected}" ToolTip.Tip="Reload from the server (F5)">
+                                <Path Classes="icon" Data="M 13,3 L 13,7 L 9,7 M 12.5,6.5 A 5.5,5.5 0 1 0 13.5,10" />
+                            </Button>
+                            <Button Classes="subtle" AutomationProperties.Name="Clear history" Command="{Binding ClearHistoryCommand}" IsVisible="{Binding IsHistoryTab}"
+                                    ToolTip.Tip="Clear the history for this server">
+                                <Path Classes="icon" Data="M 2,4 L 14,4 M 6,4 L 6,2 L 10,2 L 10,4 M 3.5,4 L 4.5,15 L 11.5,15 L 12.5,4 M 6.5,7 L 6.5,12 M 9.5,7 L 9.5,12" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <Panel>
+                        <ListBox x:Name="EntryList" Classes="items" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:Entry">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto">
+                                        <Ellipse Classes="status" Classes.ok="{Binding IsOk}" Classes.failed="{Binding IsError}"
+                                                 IsVisible="{Binding HasStatus}" Margin="0,0,8,0" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Trailing}" Classes="faint" FontSize="12" IsVisible="{Binding HasTrailing}" Margin="8,0,0,0" />
+                                        <TextBlock Grid.Row="1" Grid.ColumnSpan="3" Text="{Binding Subtitle}" Classes="muted" FontSize="12"
+                                                   TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock Text="{Binding EmptyListText}" IsVisible="{Binding ListIsEmpty}" Classes="faint" FontSize="12"
+                                   TextWrapping="Wrap" TextAlignment="Center" Margin="12,16" />
+                    </Panel>
+                </DockPanel>
+            </Border>
+
+            <!-- Nothing selected: connect hint, connection error or the server overview. -->
+            <Border Grid.Column="2" Classes="card" IsVisible="{Binding ShowEmpty}">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="560" Spacing="8">
+                    <Panel Width="64" Height="64" Margin="0,0,0,12">
+                        <Image Source="avares://McpClientUI.Avalonia/Assets/logo.png" Width="64" Height="64" IsVisible="{Binding !EmptyIsError}" />
+                        <Border Width="64" Height="64" CornerRadius="32" Background="{DynamicResource DangerSoftBrush}" IsVisible="{Binding EmptyIsError}">
+                            <TextBlock Text="!" FontSize="30" FontWeight="Bold" Foreground="{DynamicResource DangerBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Panel>
+                    <TextBlock Text="{Binding EmptyHeading}" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
+                    <SelectableTextBlock Text="{Binding EmptyBody}" Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
+                    <ItemsControl ItemsSource="{Binding OverviewChips}" HorizontalAlignment="Center" Margin="0,10,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel HorizontalAlignment="Center" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:Chip">
+                                <Border Classes="chip">
+                                    <TextBlock Text="{Binding Text}" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- The selected tool, resource or prompt -->
+            <DockPanel Grid.Column="2" IsVisible="{Binding ShowItem}">
+                <Border DockPanel.Dock="Top" Classes="card" Padding="24,18" Margin="0,0,0,12">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Spacing="8">
+                            <Button Command="{Binding CancelCommand}" IsVisible="{Binding ShowCancel}" ToolTip.Tip="Cancel the call (Esc)">Cancel</Button>
+                            <Button Classes="accent" MinWidth="96" AutomationProperties.Name="{Binding RunText}" Command="{Binding RunCommand}" IsEnabled="{Binding CanRun}" ToolTip.Tip="Ctrl+Enter (⌘↩ on a Mac)">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Path Classes="icon" Data="M 4,2 L 13,8 L 4,14 Z" />
+                                    <TextBlock Text="{Binding RunText}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                        <StackPanel Spacing="6" Margin="0,0,16,0">
+                            <SelectableTextBlock Text="{Binding ItemTitle}" FontSize="22" FontWeight="SemiBold" />
+                            <SelectableTextBlock Text="{Binding ItemDescription}" Classes="muted" TextWrapping="Wrap" MaxHeight="96" />
+                            <ItemsControl ItemsSource="{Binding ItemChips}" Margin="0,6,0,-6">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:Chip">
+                                        <Border Classes="chip" Classes.success="{Binding IsSuccess}" Classes.danger="{Binding IsDanger}" Classes.accent="{Binding IsAccent}">
+                                            <TextBlock Text="{Binding Text}" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <Grid x:Name="WorkGrid" RowDefinitions="*,12,*">
+                    <!-- Arguments: form, raw JSON, schema -->
+                    <Border Classes="card" IsVisible="{Binding ShowArgumentsCard}">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="12,4,12,0">
+                                <TabStrip Classes="pivot" SelectedIndex="{Binding ArgumentsPage}">
+                                    <TabStripItem Content="Arguments" />
+                                    <TabStripItem Content="Raw JSON" />
+                                    <TabStripItem Content="Schema" />
+                                </TabStrip>
+                                <TextBlock Grid.Column="1" Text="{Binding ArgumentsHint}" Classes="faint" FontSize="12"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" Margin="12,0" />
+                                <DropDownButton Grid.Column="2" Classes="subtle" Content="Saved" VerticalAlignment="Center"
+                                                ToolTip.Tip="Save these values, or load saved ones">
+                                    <DropDownButton.Flyout>
+                                        <MenuFlyout>
+                                            <MenuItem Header="Save current values…" Command="{Binding SavePresetCommand}" />
+                                            <MenuItem Header="Load" IsEnabled="{Binding HasPresets}" ItemsSource="{Binding PresetNames}">
+                                                <MenuItem.Styles>
+                                                    <Style Selector="MenuItem" x:DataType="x:String">
+                                                        <Setter Property="Header" Value="{Binding}" />
+                                                        <Setter Property="Command" Value="{Binding $parent[Window].((vm:MainViewModel)DataContext).LoadPresetCommand}" />
+                                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                                    </Style>
+                                                </MenuItem.Styles>
+                                            </MenuItem>
+                                            <MenuItem Header="Delete" IsEnabled="{Binding HasPresets}" ItemsSource="{Binding PresetNames}">
+                                                <MenuItem.Styles>
+                                                    <Style Selector="MenuItem" x:DataType="x:String">
+                                                        <Setter Property="Header" Value="{Binding}" />
+                                                        <Setter Property="Command" Value="{Binding $parent[Window].((vm:MainViewModel)DataContext).DeletePresetCommand}" />
+                                                        <Setter Property="CommandParameter" Value="{Binding}" />
+                                                    </Style>
+                                                </MenuItem.Styles>
+                                            </MenuItem>
+                                        </MenuFlyout>
+                                    </DropDownButton.Flyout>
+                                </DropDownButton>
+                            </Grid>
+                            <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource CardBorderBrush}" />
+                            <Panel>
+                                <!-- Form -->
+                                <ScrollViewer IsVisible="{Binding ShowFormPage}" Padding="20,14,20,14">
+                                    <Panel>
+                                        <StackPanel IsVisible="{Binding NoArguments}" Spacing="4">
+                                            <TextBlock Text="This takes no arguments." FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding RunText, StringFormat='Press {0}, or Ctrl+Enter, to call it.'}" Classes="muted" FontSize="12" />
+                                        </StackPanel>
+                                        <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" MaxWidth="760" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ItemsControl x:Name="FormFields" ItemsSource="{Binding Fields}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:FieldViewModel">
+                                                    <StackPanel Spacing="6" Margin="0,0,0,18">
+                                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                            <Border Classes="chip" Margin="0" Padding="6,1">
+                                                                <TextBlock Text="{Binding TypeLabel}" Classes="mono" FontSize="11" />
+                                                            </Border>
+                                                            <Border Classes="chip accent" Margin="0" Padding="6,1" IsVisible="{Binding Required}">
+                                                                <TextBlock Text="required" FontSize="11" />
+                                                            </Border>
+                                                        </StackPanel>
+                                                        <TextBox Text="{Binding Text}" PlaceholderText="{Binding Placeholder}" IsVisible="{Binding UsesText}"
+                                                                 AcceptsReturn="{Binding IsMultiline}" Classes.mono="{Binding IsMultiline}"
+                                                                 MinHeight="32" MaxHeight="160" TextWrapping="Wrap" />
+                                                        <ListBox Classes="segmented" ItemsSource="{Binding ChoiceLabels}" SelectedIndex="{Binding Choice}"
+                                                                 IsVisible="{Binding UsesChoices}" />
+                                                        <TextBlock Text="{Binding Error}" Classes="error" FontSize="12" IsVisible="{Binding HasError}" />
+                                                        <TextBlock Text="{Binding Description}" Classes="muted" FontSize="12" TextWrapping="Wrap"
+                                                                   IsVisible="{Binding HasDescription}" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        </Grid>
+                                    </Panel>
+                                </ScrollViewer>
+                                <!-- Raw JSON -->
+                                <DockPanel IsVisible="{Binding ShowRawPage}" Margin="16,12,16,16">
+                                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+                                        <Button Command="{Binding FormatRawCommand}">Format</Button>
+                                        <Button Command="{Binding CopyFromFormCommand}">Copy from form</Button>
+                                        <TextBlock Text="{Binding RawStatus}" FontSize="12" VerticalAlignment="Center" Margin="8,0,0,0"
+                                                   Classes.error="{Binding !RawOk}" Foreground="{DynamicResource SuccessBrush}" />
+                                    </StackPanel>
+                                    <TextBox Text="{Binding RawJson}" AcceptsReturn="True" Classes="mono" TextWrapping="NoWrap" VerticalContentAlignment="Top" />
+                                </DockPanel>
+                                <!-- Schema -->
+                                <Border Classes="code" IsVisible="{Binding ShowSchemaPage}" Margin="16,14,16,16">
+                                    <ScrollViewer HorizontalScrollBarVisibility="Auto" Padding="14,10">
+                                        <SelectableTextBlock x:Name="SchemaBlock" FontFamily="{StaticResource MonoFont}" FontSize="12.5" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Panel>
+                        </DockPanel>
+                    </Border>
+
+                    <GridSplitter Grid.Row="1" Background="Transparent" ResizeDirection="Rows" IsVisible="{Binding ShowArgumentsCard}" />
+
+                    <!-- Result -->
+                    <Border x:Name="ResultCard" Grid.Row="2" Classes="card">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,Auto,*,Auto,Auto" Margin="20,10,12,6">
+                                <TextBlock Text="{Binding ResultTitle}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" Margin="12,0,0,0" VerticalAlignment="Center">
+                                    <Border Classes="chip" Margin="0" Classes.success="{Binding ResultIsSuccess}" Classes.danger="{Binding ResultIsError}"
+                                            IsVisible="{Binding HasResultStatus}">
+                                        <TextBlock Text="{Binding ResultStatusText}" />
+                                    </Border>
+                                    <TextBlock Text="{Binding ResultMeta}" Classes="faint" FontSize="12" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <ToggleButton Grid.Column="3" Classes="subtle" IsChecked="{Binding WrapResult}" Content="Wrap" Margin="0,0,4,0" />
+                                <Button Grid.Column="4" Classes="subtle" AutomationProperties.Name="Copy" Command="{Binding CopyResultCommand}" IsEnabled="{Binding HasResult}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Path Classes="icon" Data="M 5,5 L 14,5 L 14,15 L 5,15 Z M 2,11 L 2,1 L 11,1" />
+                                        <TextBlock Text="Copy" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                            <ProgressBar DockPanel.Dock="Top" IsIndeterminate="True" IsVisible="{Binding IsRunning}" Height="3" MinHeight="3" Margin="16,0" />
+                            <Border Classes="code" Margin="16,4,16,16">
+                                <Panel>
+                                    <TextBlock Text="{Binding ResultPlaceholder}" IsVisible="{Binding !HasResult}" Classes="faint" FontSize="12" Margin="14,10" />
+                                    <ScrollViewer x:Name="ResultScroll" Padding="14,10" IsVisible="{Binding HasResult}">
+                                        <SelectableTextBlock x:Name="ResultBlock" FontFamily="{StaticResource MonoFont}" FontSize="12.5" />
+                                    </ScrollViewer>
+                                </Panel>
+                            </Border>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>

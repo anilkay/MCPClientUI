@@ -144,7 +144,6 @@ internal sealed class ToolHeader : Card
     }
 }
 
-internal enum ResultStatus { None, Running, Success, ToolError, Failed, Cancelled }
 
 /// <summary>"Result" title with a status chip, timing, and Wrap / Copy buttons.</summary>
 internal sealed class ResultHeader : Panel

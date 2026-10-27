@@ -2,14 +2,20 @@
 
 # MCP Client
 
-A small Windows Forms app for trying out MCP servers, over Streamable HTTP or stdio.
+A small desktop app for trying out MCP servers, over Streamable HTTP or stdio, for **Windows** and **macOS**.
 Built on the official [ModelContextProtocol](https://github.com/modelcontextprotocol/csharp-sdk) C# SDK.
+
+- **Windows**: a Windows Forms app with a Windows 11 look (`src/McpClientUI`).
+- **macOS** (and Linux): the same features in an Avalonia app (`src/McpClientUI.Avalonia`).
+- Both are thin UIs over `src/McpClientUI.Core`: connecting, listing, calling, argument fields from the
+  JSON schema, history, saved values and encrypted headers.
 
 ![Calling a tool (light theme)](docs/light-tool.png)
 
 ```powershell
-dotnet run --project McpClientUI.csproj               # follows the Windows light/dark setting
-dotnet run --project McpClientUI.csproj -- --theme dark
+dotnet run --project src/McpClientUI                  # Windows app; follows the Windows light/dark setting
+dotnet run --project src/McpClientUI -- --theme dark
+dotnet run --project src/McpClientUI.Avalonia         # cross-platform app (macOS, Linux, Windows)
 ```
 
 - Enter the server URL (default `http://localhost:5199/mcp`) and press **Connect**. The last URL and recent URLs are remembered.
@@ -19,7 +25,8 @@ dotnet run --project McpClientUI.csproj -- --theme dark
   the last lines it wrote to stderr are shown. **Environment** (in place of Headers) sets variables such as API keys
   for that process, stored encrypted like the headers.
 - **Headers** sets a Bearer token and any other HTTP headers (API keys, ...) for that URL. They are stored encrypted
-  for your Windows account (DPAPI) in `%AppData%\McpClientUI\headers.dat`.
+  for your account: DPAPI on Windows, AES-GCM with a key only you can read on macOS and Linux. Settings and history
+  live in `%AppData%\McpClientUI` (Windows) or `~/Library/Application Support/McpClientUI` (macOS).
 - The sidebar has four tabs, all searchable:
   - **Tools**: pick one to see its description, hints (read-only, open world, ...) and a form built from its input schema:
     text and number boxes, true/false switches, JSON boxes for objects and arrays, defaults filled in, required fields checked.
@@ -32,7 +39,26 @@ dotnet run --project McpClientUI.csproj -- --theme dark
 - **Saved** stores the current argument values under a name (per server and tool) and loads them back later.
 - **Run** calls the tool; the result shows its status and time, JSON results are colored. Calls can be cancelled.
 
-Shortcuts: `Ctrl+Enter` run, `Enter` in a field run, `Esc` cancel, `Ctrl+F` search, `F5` reload from the server.
+Shortcuts: `Ctrl+Enter` (`⌘↩` on a Mac) run, `Enter` in a field run, `Esc` cancel, `Ctrl+F` / `⌘F` search, `F5` reload from the server.
+
+## macOS
+
+Download `McpClientUI-<version>-osx-arm64.zip` (Apple Silicon) or `-osx-x64.zip` (Intel) from the
+[releases](https://github.com/anilkay/MCPClientUI/releases), unzip it and move **MCP Client.app** to Applications.
+
+The app is signed ad hoc, not notarized (that needs a paid Apple Developer ID), so macOS blocks the first launch
+of a downloaded copy. Allow it once in **System Settings › Privacy & Security › Open Anyway**, or run
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/MCP Client.app"
+```
+
+Stdio servers started from the app find tools installed with Homebrew, npm or pip (`npx`, `uvx`, `node`, `python`):
+the app adds `/opt/homebrew/bin`, `/usr/local/bin` and `~/.local/bin` to the PATH, which a Finder launch doesn't have.
+
+| Avalonia app (dark) | Prompts |
+| --- | --- |
+| ![Avalonia app, dark theme](docs/avalonia-dark.png) | ![Avalonia app, a prompt](docs/avalonia-prompt.png) |
 
 ## Screenshots
 
@@ -54,8 +80,8 @@ When the server can't be reached, the reason is shown in place:
 
 ## Requirements
 
-- Windows 10/11 and the .NET 10 SDK.
-- An MCP server with the Streamable HTTP transport, for example the one WindowsUtils starts from its AI Chat screen.
+- To build: the .NET 10 SDK (Windows for the WinForms app; any OS for the Avalonia app).
+- An MCP server: Streamable HTTP (for example the one WindowsUtils starts from its AI Chat screen) or stdio.
 
 ## Releases
 
@@ -65,16 +91,22 @@ Every push to `main` is built by `.github/workflows/build.yml`. To publish a rel
 .\release.ps1 0.1.0
 ```
 
-It pushes a `v0.1.0` tag; `.github/workflows/release.yml` then builds a self-contained single-file
-`McpClientUI.exe` (no .NET install needed, ~47 MB) and attaches it as a zip to the
-[GitHub release](https://github.com/anilkay/MCPClientUI/releases).
+It pushes a `v0.1.0` tag; `.github/workflows/release.yml` then attaches to the
+[GitHub release](https://github.com/anilkay/MCPClientUI/releases):
+
+- `McpClientUI-<tag>-win-x64.zip`: the Windows app, a self-contained single-file `McpClientUI.exe` (no .NET install needed, ~47 MB).
+- `McpClientUI-<tag>-osx-arm64.zip` and `-osx-x64.zip`: **MCP Client.app** for Apple Silicon and Intel Macs,
+  packaged by `src/McpClientUI.Avalonia/macOS/package-app.sh`.
+
+The build workflow also packages the Mac app on every push and opens it on a macOS runner; its
+`McpClientUI-osx-arm64-app` artifact lets you try a build before releasing it.
 
 ## Build options
 
 | Build | Size | Needs | Command |
 | --- | --- | --- | --- |
-| Self-contained single file (what releases ship) | ~47 MB exe | nothing | `dotnet publish McpClientUI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish` |
-| Framework-dependent single file | ~2.4 MB exe (~0.8 MB zipped) | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | `dotnet publish McpClientUI.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=none -o publish` |
+| Self-contained single file (what releases ship) | ~47 MB exe | nothing | `dotnet publish src/McpClientUI/McpClientUI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish` |
+| Framework-dependent single file | ~2.4 MB exe (~0.8 MB zipped) | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | `dotnet publish src/McpClientUI/McpClientUI.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=none -o publish` |
 
 The self-contained build can't get much smaller: Windows Forms doesn't support trimming, and the
 single file is already compressed.

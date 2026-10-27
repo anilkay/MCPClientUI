@@ -3,10 +3,19 @@ using System.Text.Json;
 namespace McpClientUI;
 
 /// <summary>Remembered between runs: the server URL, recent URLs and the window layout.</summary>
-internal sealed class AppSettings
+public sealed class AppSettings
 {
-    public static readonly string Folder = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "McpClientUI");
+    /// <summary>%AppData%\McpClientUI on Windows, ~/Library/Application Support/McpClientUI on macOS, ~/.config/McpClientUI on Linux.</summary>
+    public static readonly string Folder = OperatingSystem.IsMacOS()
+        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Application Support", "McpClientUI")
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "McpClientUI");
+
+    /// <summary>Creates the settings folder, readable only by the user on macOS and Linux.</summary>
+    public static void EnsureFolder()
+    {
+        if (OperatingSystem.IsWindows()) Directory.CreateDirectory(Folder);
+        else Directory.CreateDirectory(Folder, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+    }
 
     private static readonly string FilePath = Path.Combine(Folder, "settings.json");
 
@@ -41,7 +50,7 @@ internal sealed class AppSettings
     {
         try
         {
-            Directory.CreateDirectory(Folder);
+            EnsureFolder();
             File.WriteAllText(FilePath, JsonSerializer.Serialize(this, Options));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

@@ -1,4 +1,6 @@
-# Builds on every push and pull request so a broken main is caught before a release.
+# Builds on every push and pull request so a broken main is caught before a release:
+# the whole solution on Windows, and on macOS the Avalonia app packaged as "MCP Client.app"
+# and opened the way a double click does.
 name: Build
 
 on:
@@ -7,7 +9,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,4 +19,32 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Build
-        run: dotnet build McpClientUI.csproj -c Release -warnaserror
+        run: dotnet build McpClientUI.slnx -c Release -warnaserror
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build src/McpClientUI.Avalonia -c Release -warnaserror
+
+      - name: Package the macOS app and open it
+        run: |
+          dotnet publish src/McpClientUI.Avalonia -c Release -r osx-arm64 --self-contained -o publish/McpClientUI
+          bash src/McpClientUI.Avalonia/macOS/package-app.sh publish/McpClientUI 0.0.0 publish
+          ditto -c -k --keepParent "publish/MCP Client.app" McpClientUI-osx-arm64.zip
+          open "publish/MCP Client.app"
+          sleep 15
+          pgrep -x McpClientUI.Avalonia    # still running 15 s later
+          pkill -x McpClientUI.Avalonia
+
+      # Lets you try the app on a Mac before a release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: McpClientUI-osx-arm64-app
+          path: McpClientUI-osx-arm64.zip

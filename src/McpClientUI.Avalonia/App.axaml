@@ -1,0 +1,177 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="McpClientUI.Desktop.App"
+             Name="MCP Client"
+             RequestedThemeVariant="Default">
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- The same palette as the Windows app (Theme.cs), light and dark. -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="WindowBrush" Color="#F3F3F3" />
+                    <SolidColorBrush x:Key="SurfaceBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#F8F8F8" />
+                    <SolidColorBrush x:Key="CardBorderBrush" Color="#E5E5E5" />
+                    <SolidColorBrush x:Key="TextBrush" Color="#1B1B1B" />
+                    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#5F5F5F" />
+                    <SolidColorBrush x:Key="TertiaryTextBrush" Color="#8A8A8A" />
+                    <SolidColorBrush x:Key="SubtleBrush" Color="#F0F0F0" />
+                    <SolidColorBrush x:Key="SelectedBrush" Color="#EEEEEE" />
+                    <SolidColorBrush x:Key="SuccessBrush" Color="#0F7B0F" />
+                    <SolidColorBrush x:Key="SuccessSoftBrush" Color="#E2F1E2" />
+                    <SolidColorBrush x:Key="DangerBrush" Color="#C42B1C" />
+                    <SolidColorBrush x:Key="DangerSoftBrush" Color="#FBE6E4" />
+                    <SolidColorBrush x:Key="CautionBrush" Color="#9D5D00" />
+                    <SolidColorBrush x:Key="JsonKeyBrush" Color="#0451A5" />
+                    <SolidColorBrush x:Key="JsonStringBrush" Color="#A31515" />
+                    <SolidColorBrush x:Key="JsonNumberBrush" Color="#098658" />
+                    <SolidColorBrush x:Key="JsonLiteralBrush" Color="#0000FF" />
+                    <SolidColorBrush x:Key="JsonPunctuationBrush" Color="#707070" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="WindowBrush" Color="#202020" />
+                    <SolidColorBrush x:Key="SurfaceBrush" Color="#2B2B2B" />
+                    <SolidColorBrush x:Key="SurfaceAltBrush" Color="#1F1F1F" />
+                    <SolidColorBrush x:Key="CardBorderBrush" Color="#3A3A3A" />
+                    <SolidColorBrush x:Key="TextBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#C5C5C5" />
+                    <SolidColorBrush x:Key="TertiaryTextBrush" Color="#9E9E9E" />
+                    <SolidColorBrush x:Key="SubtleBrush" Color="#3A3A3A" />
+                    <SolidColorBrush x:Key="SelectedBrush" Color="#383838" />
+                    <SolidColorBrush x:Key="SuccessBrush" Color="#6CCB5F" />
+                    <SolidColorBrush x:Key="SuccessSoftBrush" Color="#2B3D2A" />
+                    <SolidColorBrush x:Key="DangerBrush" Color="#FF99A4" />
+                    <SolidColorBrush x:Key="DangerSoftBrush" Color="#4A2E31" />
+                    <SolidColorBrush x:Key="CautionBrush" Color="#FCE100" />
+                    <SolidColorBrush x:Key="JsonKeyBrush" Color="#9CDCFE" />
+                    <SolidColorBrush x:Key="JsonStringBrush" Color="#CE9178" />
+                    <SolidColorBrush x:Key="JsonNumberBrush" Color="#B5CEA8" />
+                    <SolidColorBrush x:Key="JsonLiteralBrush" Color="#569CD6" />
+                    <SolidColorBrush x:Key="JsonPunctuationBrush" Color="#A0A0A0" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, Menlo, SF Mono, DejaVu Sans Mono, monospace</FontFamily>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{DynamicResource WindowBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Border.code">
+            <Setter Property="Background" Value="{DynamicResource SurfaceAltBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Border.chip">
+            <Setter Property="Background" Value="{DynamicResource SubtleBrush}" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+        </Style>
+        <Style Selector="Border.chip.accent">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentColorLight3}" />
+        </Style>
+        <Style Selector="Border.chip.success">
+            <Setter Property="Background" Value="{DynamicResource SuccessSoftBrush}" />
+        </Style>
+        <Style Selector="Border.chip.danger">
+            <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}" />
+        </Style>
+        <Style Selector="Border.chip > TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+        </Style>
+        <Style Selector="Border.chip.success > TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+        </Style>
+        <Style Selector="Border.chip.danger > TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="Border.chip.accent > TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SystemAccentColorDark1}" />
+        </Style>
+
+        <Style Selector="TextBlock.muted, SelectableTextBlock.muted">
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+        </Style>
+        <Style Selector="TextBlock.faint">
+            <Setter Property="Foreground" Value="{DynamicResource TertiaryTextBrush}" />
+        </Style>
+        <Style Selector="TextBlock.error">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+        </Style>
+        <Style Selector="TextBlock.mono">
+            <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        </Style>
+        <Style Selector="TextBox.mono">
+            <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        </Style>
+
+        <Style Selector="Button.subtle">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
+        <!-- Sidebar and result lists: rounded rows with a selection pill. -->
+        <Style Selector="ListBox.items">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="ListBox.items ListBoxItem">
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="CornerRadius" Value="5" />
+        </Style>
+        <!-- Windows 11 style selection: a soft gray row instead of the accent fill. -->
+        <Style Selector="ListBox.items ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SubtleBrush}" />
+        </Style>
+        <Style Selector="ListBox.items ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelectedBrush}" />
+        </Style>
+        <Style Selector="ListBox.items ListBoxItem:selected">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+            <Setter Property="BorderThickness" Value="3,0,0,0" />
+        </Style>
+        <Style Selector="ListBox.items ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelectedBrush}" />
+        </Style>
+
+        <!-- True/false and short enums: a row of pills. -->
+        <Style Selector="ListBox.segmented">
+            <Setter Property="Background" Value="{DynamicResource SubtleBrush}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="3" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="ItemsPanel">
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="ListBox.segmented ListBoxItem">
+            <Setter Property="Padding" Value="14,5" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="MinWidth" Value="64" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+    </Application.Styles>
+</Application>

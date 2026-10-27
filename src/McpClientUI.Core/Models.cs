@@ -8,14 +8,14 @@ using ModelContextProtocol.Client;
 
 namespace McpClientUI;
 
-internal enum ItemKind { Tool, Resource, ResourceTemplate, Prompt }
+public enum ItemKind { Tool, Resource, ResourceTemplate, Prompt }
 
 /// <summary>
 /// Something on the server that can be called: a tool, a resource, a resource template or a
 /// prompt. Templates and prompts get a JSON schema built from their parameters so the same
 /// argument form works for all of them.
 /// </summary>
-internal sealed class McpItem
+public sealed class McpItem
 {
     private static readonly JsonElement EmptySchema = JsonSerializer.SerializeToElement(new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() });
 
@@ -109,14 +109,8 @@ internal sealed class McpItem
     }
 }
 
-/// <summary>A row in a sidebar list.</summary>
-internal sealed record ListEntry(string Title, string Subtitle, object Tag, Color? Dot = null, string? Trailing = null)
-{
-    public override string ToString() => Title;
-}
-
 /// <summary>One finished call, kept so it can be looked at again or repeated.</summary>
-internal sealed class HistoryEntry
+public sealed class HistoryEntry
 {
     public string Url { get; set; } = "";
     public ItemKind Kind { get; set; }
@@ -130,7 +124,7 @@ internal sealed class HistoryEntry
 }
 
 /// <summary>Call history in %AppData%\McpClientUI\history.json (newest first, capped).</summary>
-internal sealed class HistoryStore
+public sealed class HistoryStore
 {
     private const int MaxEntries = 300;
     private const int MaxTextLength = 200_000;
@@ -178,7 +172,7 @@ internal sealed class HistoryStore
     {
         try
         {
-            Directory.CreateDirectory(AppSettings.Folder);
+            AppSettings.EnsureFolder();
             File.WriteAllText(FilePath, JsonSerializer.Serialize(entries, Options));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -189,13 +183,12 @@ internal sealed class HistoryStore
 }
 
 /// <summary>
-/// HTTP headers (Bearer token, API keys, ...) per server URL, encrypted with DPAPI for the
-/// current Windows user in %AppData%\McpClientUI\headers.dat.
+/// HTTP headers (Bearer token, API keys, ...) or environment variables per server, encrypted for
+/// the current user (see <see cref="Secrets"/>) in the settings folder's headers.dat.
 /// </summary>
-internal static class HeaderStore
+public static class HeaderStore
 {
     private static readonly string FilePath = Path.Combine(AppSettings.Folder, "headers.dat");
-    private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("McpClientUI headers");
 
     public static Dictionary<string, string> Get(string url) =>
         LoadAll().TryGetValue(Normalize(url), out var headers) ? headers : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -207,9 +200,9 @@ internal static class HeaderStore
         else all[Normalize(url)] = headers;
         try
         {
-            Directory.CreateDirectory(AppSettings.Folder);
+            AppSettings.EnsureFolder();
             byte[] plain = JsonSerializer.SerializeToUtf8Bytes(all);
-            File.WriteAllBytes(FilePath, ProtectedData.Protect(plain, Entropy, DataProtectionScope.CurrentUser));
+            Secrets.WritePrivateFile(FilePath, Secrets.Protect(plain));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CryptographicException)
         {
@@ -223,7 +216,7 @@ internal static class HeaderStore
         {
             if (File.Exists(FilePath))
             {
-                byte[] plain = ProtectedData.Unprotect(File.ReadAllBytes(FilePath), Entropy, DataProtectionScope.CurrentUser);
+                byte[] plain = Secrets.Unprotect(File.ReadAllBytes(FilePath));
                 var all = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(plain);
                 if (all is not null)
                     return all.ToDictionary(kv => kv.Key, kv => new Dictionary<string, string>(kv.Value, StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase);
@@ -243,7 +236,7 @@ internal static class HeaderStore
 /// What the address box points at: an http(s) URL (Streamable HTTP) or a command line that
 /// starts a stdio server, such as <c>npx -y @modelcontextprotocol/server-everything</c>.
 /// </summary>
-internal sealed class ServerTarget
+public sealed class ServerTarget
 {
     private ServerTarget(Uri? endpoint, string? command, List<string> arguments)
     {
@@ -273,7 +266,38 @@ internal sealed class ServerTarget
     }
 
     /// <summary>Splits a command line the way Windows programs do (quotes and backslashes included).</summary>
-    private static List<string> SplitCommandLine(string text)
+    private static List<string> SplitCommandLine(string text) =>
+        OperatingSystem.IsWindows() ? SplitWindows(text) : SplitPosix(text);
+
+    /// <summary>Shell-like splitting: spaces separate, '' and "" quote, a backslash escapes the next character.</summary>
+    private static List<string> SplitPosix(string text)
+    {
+        var parts = new List<string>();
+        var current = new StringBuilder();
+        bool inWord = false;
+        char quote = '\0';
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+            if (quote != '\0')
+            {
+                if (c == quote) quote = '\0';
+                else if (c == '\\' && quote == '"' && i + 1 < text.Length && text[i + 1] is '"' or '\\') current.Append(text[++i]);
+                else current.Append(c);
+            }
+            else if (c is '\'' or '"') { quote = c; inWord = true; }
+            else if (c == '\\' && i + 1 < text.Length) { current.Append(text[++i]); inWord = true; }
+            else if (char.IsWhiteSpace(c))
+            {
+                if (inWord) { parts.Add(current.ToString()); current.Clear(); inWord = false; }
+            }
+            else { current.Append(c); inWord = true; }
+        }
+        if (inWord) parts.Add(current.ToString());
+        return parts;
+    }
+
+    private static List<string> SplitWindows(string text)
     {
         IntPtr argv = CommandLineToArgvW(text, out int count);
         if (argv == IntPtr.Zero) return [];
@@ -298,7 +322,7 @@ internal sealed class ServerTarget
 }
 
 /// <summary>The last lines a stdio server wrote to stderr (shown when it fails to start).</summary>
-internal sealed class StderrTail
+public sealed class StderrTail
 {
     private const int MaxLines = 15;
     private readonly Queue<string> lines = new();

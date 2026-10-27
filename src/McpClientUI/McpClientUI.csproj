@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The Windows app (WinForms, Windows 11 look). The logic it shares with the Avalonia app is in McpClientUI.Core. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>..\..\assets\logo\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\assets\logo\app.ico" LogicalName="McpClientUI.app.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\McpClientUI.Core\McpClientUI.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -345,37 +345,17 @@ internal sealed class MainForm : Form
         SetState(ConnectionState.Connecting);
         McpClient? newClient = null;
         var stderr = new StderrTail();
-        // A stdio server may have to be downloaded first (npx, uvx), so give it longer.
-        var wait = target.IsStdio ? TimeSpan.FromSeconds(90) : TimeSpan.FromSeconds(20);
+        var wait = McpOperations.ConnectTimeout(target);
         try
         {
             using var timeout = new CancellationTokenSource(wait);
-            var secrets = HeaderStore.Get(url);
-            IClientTransport transport = target.IsStdio
-                ? new StdioClientTransport(new StdioClientTransportOptions
-                {
-                    Command = target.Command!,
-                    Arguments = target.Arguments,
-                    Name = "MCP Client",
-                    EnvironmentVariables = secrets.ToDictionary(kv => kv.Key, kv => (string?)kv.Value),
-                    StandardErrorLines = stderr.Add,
-                })
-                : new HttpClientTransport(new HttpClientTransportOptions
-                {
-                    Endpoint = target.Endpoint!,
-                    TransportMode = HttpTransportMode.StreamableHttp,
-                    Name = "MCP Client",
-                    AdditionalHeaders = secrets.Count > 0 ? secrets : null,
-                });
-            newClient = await McpClient.CreateAsync(transport, new McpClientOptions
-            {
-                ClientInfo = new Implementation { Name = "mcp-client-ui", Version = "1.0" },
-            }, cancellationToken: timeout.Token);
-            var (newTools, newResources, newPrompts) = await LoadItemsAsync(newClient, timeout.Token);
+            var transport = McpOperations.CreateTransport(target, HeaderStore.Get(url), stderr);
+            newClient = await McpOperations.ConnectAsync(transport, timeout.Token);
+            var items = await McpOperations.LoadItemsAsync(newClient, timeout.Token);
 
             client = newClient;
             connectedUrl = url;
-            (tools, resources, prompts) = (newTools, newResources, newPrompts);
+            (tools, resources, prompts) = (items.Tools, items.Resources, items.Prompts);
             currentItem = null;
             results.Clear();
             UpdateServerItem();
@@ -391,49 +371,9 @@ internal sealed class MainForm : Form
         catch (Exception ex)
         {
             if (newClient is not null) await SafeDisposeAsync(newClient);
-            connectError = ex is OperationCanceledException ? $"The server didn't answer within {wait.TotalSeconds:0} seconds." : DescribeError(ex);
-            // The SDK already puts stderr into some messages (e.g. when the process exits); don't repeat it.
-            if (target.IsStdio && stderr.Text is { Length: > 0 } output && !connectError.Contains(output.Split('\n')[^1]))
-                connectError += "\n\nThe server wrote:\n" + output;
+            connectError = McpOperations.DescribeConnectError(ex, target, wait, stderr);
             SetState(ConnectionState.Failed);
         }
-    }
-
-    private static string DescribeError(Exception ex)
-    {
-        string message = ex.Message;
-        if (message.Contains("401") || message.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase))
-            message += "\n\nThe server wants credentials: add a Bearer token or API key header with the Headers button.";
-        return message;
-    }
-
-    /// <summary>Lists tools, resources (and templates) and prompts, each only if the server offers it.</summary>
-    private static async Task<(List<McpItem>, List<McpItem>, List<McpItem>)> LoadItemsAsync(McpClient mcpClient, CancellationToken cancellationToken)
-    {
-        var caps = mcpClient.ServerCapabilities;
-        var newTools = new List<McpItem>();
-        var newResources = new List<McpItem>();
-        var newPrompts = new List<McpItem>();
-
-        if (caps?.Tools is not null)
-            newTools.AddRange((await mcpClient.ListToolsAsync(cancellationToken: cancellationToken)).Select(McpItem.FromTool));
-        if (caps?.Resources is not null)
-        {
-            newResources.AddRange((await mcpClient.ListResourcesAsync(cancellationToken: cancellationToken)).Select(McpItem.FromResource));
-            try
-            {
-                newResources.AddRange((await mcpClient.ListResourceTemplatesAsync(cancellationToken: cancellationToken)).Select(McpItem.FromTemplate));
-            }
-            catch (McpException)
-            {
-                // Some servers list resources but not templates.
-            }
-        }
-        if (caps?.Prompts is not null)
-            newPrompts.AddRange((await mcpClient.ListPromptsAsync(cancellationToken: cancellationToken)).Select(McpItem.FromPrompt));
-
-        static List<McpItem> Sorted(List<McpItem> items) => [.. items.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase)];
-        return (Sorted(newTools), Sorted(newResources), Sorted(newPrompts));
     }
 
     private async Task DisconnectAsync()
@@ -464,7 +404,8 @@ internal sealed class MainForm : Form
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-            (tools, resources, prompts) = await LoadItemsAsync(client, timeout.Token);
+            var items = await McpOperations.LoadItemsAsync(client, timeout.Token);
+            (tools, resources, prompts) = (items.Tools, items.Resources, items.Prompts);
             var previous = currentItem;
             currentItem = null;
             UpdateServerItem();
@@ -491,7 +432,7 @@ internal sealed class MainForm : Form
     {
         state = newState;
         bool connected = newState == ConnectionState.Connected;
-        string serverName = client is null ? "" : ServerName(client);
+        string serverName = client is null ? "" : McpOperations.ServerName(client);
         statusPill.Set(newState, newState switch
         {
             ConnectionState.Connecting => "Connecting…",
@@ -514,16 +455,13 @@ internal sealed class MainForm : Form
         UpdateRightPane();
     }
 
-    private static string ServerName(McpClient mcpClient) =>
-        string.IsNullOrWhiteSpace(mcpClient.ServerInfo.Title) ? mcpClient.ServerInfo.Name : mcpClient.ServerInfo.Title;
-
     private void UpdateServerItem()
     {
         if (client is null) return;
         var parts = new List<string> { $"Version {client.ServerInfo.Version}", Plural(tools.Count, "tool") };
         if (resources.Count > 0) parts.Add(Plural(resources.Count, "resource"));
         if (prompts.Count > 0) parts.Add(Plural(prompts.Count, "prompt"));
-        serverItem.Set(ServerName(client), string.Join(" · ", parts));
+        serverItem.Set(McpOperations.ServerName(client), string.Join(" · ", parts));
     }
 
     private static string Plural(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count:N0} {noun}s";
@@ -775,7 +713,7 @@ internal sealed class MainForm : Form
                 chips.Add(Plural(tools.Count, "tool"));
                 if (client.ServerCapabilities?.Resources is not null) chips.Add(Plural(resources.Count, "resource"));
                 if (client.ServerCapabilities?.Prompts is not null) chips.Add(Plural(prompts.Count, "prompt"));
-                emptyState.Show(Glyphs.Globe, ServerName(client), instructions + "\n\nPick something on the left to try it.", Theme.Accent, [.. chips]);
+                emptyState.Show(Glyphs.Globe, McpOperations.ServerName(client), instructions + "\n\nPick something on the left to try it.", Theme.Accent, [.. chips]);
                 break;
             case ConnectionState.Connecting:
                 emptyState.Show(Glyphs.Plug, "Connecting…", urlBox.Value.Trim(), Theme.Accent);
@@ -845,61 +783,15 @@ internal sealed class MainForm : Form
     }
 
     /// <summary>Required arguments as empty values of their type, plus optional ones that have a default.</summary>
-    private static string BuildRawTemplate(JsonElement schema)
-    {
-        var template = new JsonObject();
-        if (schema.ValueKind == JsonValueKind.Object &&
-            schema.TryGetProperty("properties", out var props) && props.ValueKind == JsonValueKind.Object)
-        {
-            var required = schema.TryGetProperty("required", out var req) && req.ValueKind == JsonValueKind.Array
-                ? req.EnumerateArray().Where(r => r.ValueKind == JsonValueKind.String).Select(r => r.GetString()!).ToHashSet()
-                : [];
-            foreach (var p in props.EnumerateObject())
-            {
-                if (p.Value.TryGetProperty("default", out var def))
-                {
-                    template[p.Name] = JsonNode.Parse(def.GetRawText());
-                    continue;
-                }
-                if (!required.Contains(p.Name)) continue;
-                string type = p.Value.TryGetProperty("type", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString()! : "string";
-                template[p.Name] = type switch
-                {
-                    "integer" or "number" => 0,
-                    "boolean" => false,
-                    "array" => new JsonArray(),
-                    "object" => new JsonObject(),
-                    _ => "",
-                };
-            }
-        }
-        return Pretty(template);
-    }
+    private static string BuildRawTemplate(JsonElement schema) => Pretty(McpOperations.RawTemplate(schema));
 
     private bool TryParseRaw(out JsonObject arguments)
     {
-        arguments = [];
-        string text = rawBox.Value;
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            rawStatus.Set(Glyphs.Info, "Empty: called without arguments", Theme.SecondaryText);
-            return true;
-        }
-        try
-        {
-            if (JsonNode.Parse(text) is JsonObject parsed)
-            {
-                arguments = parsed;
-                rawStatus.Set(Glyphs.Check, parsed.Count == 0 ? "Valid JSON, no arguments" : $"Valid JSON · {Plural(parsed.Count, "argument")}", Theme.Success);
-                return true;
-            }
-            rawStatus.Set(Glyphs.Error, "Arguments must be a JSON object: { … }", Theme.Danger);
-        }
-        catch (JsonException ex)
-        {
-            rawStatus.Set(Glyphs.Error, $"Not valid JSON ({JsonText.Describe(ex)})", Theme.Danger);
-        }
-        return false;
+        bool ok = McpOperations.TryParseArguments(rawBox.Value, out arguments, out var message);
+        if (!ok) rawStatus.Set(Glyphs.Error, message, Theme.Danger);
+        else if (string.IsNullOrWhiteSpace(rawBox.Value)) rawStatus.Set(Glyphs.Info, message, Theme.SecondaryText);
+        else rawStatus.Set(Glyphs.Check, message, Theme.Success);
+        return ok;
     }
 
     private void FormatRaw()
@@ -1006,9 +898,6 @@ internal sealed class MainForm : Form
                 return;
             }
         }
-        var callArguments = arguments.ToDictionary(
-            kv => kv.Key,
-            kv => (object?)(kv.Value is null ? null : JsonSerializer.SerializeToElement(kv.Value)));
 
         var cts = new CancellationTokenSource();
         callCts = cts;
@@ -1022,27 +911,9 @@ internal sealed class MainForm : Form
         ResultState outcome;
         try
         {
-            ResultStatus status = ResultStatus.Success;
-            string text;
-            switch (item.Kind)
-            {
-                case ItemKind.Tool:
-                    var result = await mcpClient.CallToolAsync(item.Key, callArguments, cancellationToken: cts.Token);
-                    text = FormatResult(result);
-                    if (result.IsError == true) status = ResultStatus.ToolError;
-                    break;
-                case ItemKind.Resource:
-                    text = FormatResource(await mcpClient.ReadResourceAsync(item.Key, cancellationToken: cts.Token));
-                    break;
-                case ItemKind.ResourceTemplate:
-                    text = FormatResource(await mcpClient.ReadResourceAsync(item.Key, callArguments, cancellationToken: cts.Token));
-                    break;
-                default:
-                    text = FormatPrompt(await mcpClient.GetPromptAsync(item.Key, callArguments, cancellationToken: cts.Token));
-                    break;
-            }
+            var result = await McpOperations.RunAsync(mcpClient, item, arguments, cts.Token);
             callWatch.Stop();
-            outcome = new ResultState(status, Meta(text), text);
+            outcome = new ResultState(result.Status, Meta(result.Text), result.Text);
         }
         catch (OperationCanceledException)
         {
@@ -1136,61 +1007,6 @@ internal sealed class MainForm : Form
             });
         }
         resultHeader.CopyButton.Enabled = resultView.Content.Length > 0;
-    }
-
-    private static string FormatResult(CallToolResult result)
-    {
-        var parts = new List<string>();
-        foreach (var block in result.Content)
-            parts.Add(FormatBlock(block));
-        if (parts.Count == 0 && result.StructuredContent is { } structured)
-            parts.Add(JsonText.Format(structured));
-        return parts.Count == 0 ? "(The tool returned no content.)" : string.Join("\n\n", parts);
-    }
-
-    private static string FormatResource(ReadResourceResult result)
-    {
-        bool several = result.Contents.Count > 1;
-        var parts = result.Contents.Select(content =>
-        {
-            string body = content switch
-            {
-                TextResourceContents text => JsonText.TryFormat(text.Text, out var pretty) ? pretty : text.Text,
-                BlobResourceContents blob => $"[binary {blob.MimeType ?? "data"}, {blob.DecodedData.Length:N0} bytes]",
-                _ => content.ToString() ?? "",
-            };
-            return several ? $"── {content.Uri} ({content.MimeType ?? "unknown type"}) ──\n{body}" : body;
-        }).ToList();
-        return parts.Count == 0 ? "(The resource is empty.)" : string.Join("\n\n", parts);
-    }
-
-    private static string FormatPrompt(GetPromptResult result)
-    {
-        var text = new StringBuilder();
-        if (!string.IsNullOrWhiteSpace(result.Description))
-            text.Append(result.Description.Trim()).Append("\n\n");
-        foreach (var message in result.Messages)
-            text.Append("── ").Append(message.Role.ToString().ToLowerInvariant()).Append(" ──\n").Append(FormatBlock(message.Content)).Append("\n\n");
-        return text.Length == 0 ? "(The prompt has no messages.)" : text.ToString().TrimEnd();
-    }
-
-    private static string FormatBlock(ContentBlock block) => block switch
-    {
-        TextContentBlock text => JsonText.TryFormat(text.Text, out var pretty) ? pretty : text.Text,
-        ImageContentBlock image => $"[image: {image.MimeType}, {image.DecodedData.Length:N0} bytes]",
-        _ => DescribeBlock(block),
-    };
-
-    private static string DescribeBlock(ContentBlock block)
-    {
-        try
-        {
-            return JsonSerializer.Serialize(block, JsonText.Pretty);
-        }
-        catch (Exception ex) when (ex is NotSupportedException or InvalidOperationException)
-        {
-            return $"[{block.Type} content]";
-        }
     }
 
     private void CopyResult()

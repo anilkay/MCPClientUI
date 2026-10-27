@@ -6,7 +6,7 @@
     Checks that you are on an up-to-date, clean main branch and that the tag
     does not exist yet, then creates an annotated tag and pushes it. The push
     starts .github/workflows/release.yml, which builds the self-contained
-    McpClientUI.exe and publishes the GitHub release with the zip attached.
+    Windows exe and the macOS apps and publishes the GitHub release with the zips attached.
 
 .EXAMPLE
     .\release.ps1 0.0.2

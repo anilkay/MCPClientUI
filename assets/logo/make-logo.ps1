@@ -72,3 +72,10 @@ foreach ($s in $sizes) {
 foreach ($s in $sizes) { $w.Write($pngs[$s]) }
 $w.Close()
 "ok"
+
+# PNGs for the macOS app icon (iconutil) and the Avalonia window: 16 … 1024 px.
+$pngDir = Join-Path $Out 'png'
+New-Item -ItemType Directory -Force $pngDir | Out-Null
+foreach ($s in 16, 32, 64, 128, 256, 512, 1024) {
+  (Render $s).Save((Join-Path $pngDir "$s.png"), [System.Drawing.Imaging.ImageFormat]::Png)
+}

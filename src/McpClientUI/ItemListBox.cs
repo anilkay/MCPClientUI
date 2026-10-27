@@ -2,6 +2,12 @@ using System.ComponentModel;
 
 namespace McpClientUI;
 
+/// <summary>A row in a sidebar list.</summary>
+internal sealed record ListEntry(string Title, string Subtitle, object Tag, Color? Dot = null, string? Trailing = null)
+{
+    public override string ToString() => Title;
+}
+
 /// <summary>
 /// Owner-painted sidebar list: a bold title, a gray second line, an optional status dot and
 /// trailing text (e.g. a time), with the Windows 11 selection pill.

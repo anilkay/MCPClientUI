@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The cross-platform app (macOS, Linux, Windows) with Avalonia. Connecting, listing, calling,
+    argument fields, history, saved values and encrypted headers come from McpClientUI.Core,
+    shared with the WinForms app; this project only holds the views and their view models.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>McpClientUI.Desktop</RootNamespace>
+    <AssemblyName>McpClientUI.Avalonia</AssemblyName>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ApplicationIcon>..\..\assets\logo\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <!-- Window icon and the logo in the header: avares://McpClientUI.Avalonia/Assets/logo.png -->
+  <ItemGroup>
+    <AvaloniaResource Include="..\..\assets\logo\logo.png" Link="Assets\logo.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\McpClientUI.Core\McpClientUI.Core.csproj" />
+  </ItemGroup>
+
+</Project>
