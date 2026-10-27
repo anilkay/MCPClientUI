@@ -4,8 +4,10 @@
 #
 #   bash src/McpClientUI.Avalonia/macOS/package-app.sh <publish folder> <version> <output folder>
 #
-# The bundle is signed ad hoc (no Apple Developer account): Apple Silicon needs a signature to run
-# at all. It is not notarized, so a downloaded copy has to be allowed once (see the README).
+# Signing: with SIGN_IDENTITY set (a "Developer ID Application: …" certificate in the keychain) the
+# bundle is signed with the hardened runtime and entitlements.plist, ready for notarization (the
+# release workflow then notarizes and staples it). Without it, it is signed ad hoc: Apple Silicon
+# needs a signature to run at all, and a downloaded copy has to be allowed once (see the README).
 set -euo pipefail
 
 APP_NAME="MCP Client"              # the .app name and what Finder shows
@@ -45,7 +47,13 @@ iconutil -c icns "$iconset" -o "$app/Contents/Resources/AppIcon.icns"
 # (a non-Mach-O file keeps its signature in extended attributes, which ditto's zip preserves). The
 # main executable is signed last, with the bundle.
 executable="$app/Contents/MacOS/$EXECUTABLE"
-find "$app/Contents/MacOS" -type f ! -path "$executable" -print0 |
-    xargs -0 codesign --force --sign - --timestamp=none
-codesign --force --sign - --timestamp=none "$app"
+if [ -n "${SIGN_IDENTITY:-}" ]; then
+    find "$app/Contents/MacOS" -type f ! -path "$executable" -print0 |
+        xargs -0 codesign --force --sign "$SIGN_IDENTITY" --timestamp --options runtime
+    codesign --force --sign "$SIGN_IDENTITY" --timestamp --options runtime --entitlements "$here/entitlements.plist" "$app"
+else
+    find "$app/Contents/MacOS" -type f ! -path "$executable" -print0 |
+        xargs -0 codesign --force --sign - --timestamp=none
+    codesign --force --sign - --timestamp=none "$app"
+fi
 codesign --verify --strict --verbose=2 "$app"

@@ -46,12 +46,26 @@ Shortcuts: `Ctrl+Enter` (`⌘↩` on a Mac) run, `Enter` in a field run, `Esc` c
 Download `McpClientUI-<version>-osx-arm64.zip` (Apple Silicon) or `-osx-x64.zip` (Intel) from the
 [releases](https://github.com/anilkay/MCPClientUI/releases), unzip it and move **MCP Client.app** to Applications.
 
-The app is signed ad hoc, not notarized (that needs a paid Apple Developer ID), so macOS blocks the first launch
-of a downloaded copy. Allow it once in **System Settings › Privacy & Security › Open Anyway**, or run
+Releases are signed with a Developer ID and notarized by Apple when the signing secrets below are set; such a copy
+opens with a double click. Without them the app is signed ad hoc, and macOS blocks the first launch of a downloaded
+copy: allow it once in **System Settings › Privacy & Security › Open Anyway**, or run
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/MCP Client.app"
 ```
+
+### Signing and notarization (maintainers)
+
+Add these repository secrets (Settings › Secrets and variables › Actions); `release.yml` then signs the Mac app with
+the hardened runtime (`src/McpClientUI.Avalonia/macOS/entitlements.plist`), notarizes it with `notarytool` and staples it:
+
+| Secret | What |
+| --- | --- |
+| `MACOS_CERTIFICATE_P12` | Your **Developer ID Application** certificate with its private key, exported from Keychain Access as .p12, in base64 (`base64 -i cert.p12 \| pbcopy`) |
+| `MACOS_CERTIFICATE_PASSWORD` | The .p12 password |
+| `APPLE_TEAM_ID` | Your team id (developer.apple.com › Membership) |
+| `NOTARY_KEY_P8` | An App Store Connect API key (Users and Access › Integrations), the .p8 file in base64 |
+| `NOTARY_KEY_ID`, `NOTARY_ISSUER_ID` | That key's Key ID and Issuer ID |
 
 Stdio servers started from the app find tools installed with Homebrew, npm or pip (`npx`, `uvx`, `node`, `python`):
 the app adds `/opt/homebrew/bin`, `/usr/local/bin` and `~/.local/bin` to the PATH, which a Finder launch doesn't have.

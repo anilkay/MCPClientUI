@@ -2,6 +2,8 @@
 #   McpClientUI-<tag>-win-x64.zip       the Windows app, a self-contained single-file exe
 #   McpClientUI-<tag>-osx-arm64.zip     "MCP Client.app" for Apple Silicon Macs
 #   McpClientUI-<tag>-osx-x64.zip       "MCP Client.app" for Intel Macs
+#     (signed with a Developer ID and notarized when the MACOS_* / NOTARY_* secrets are set,
+#     see the README; signed ad hoc otherwise)
 #   McpClientUI-<tag>-x86_64.AppImage   the Linux app as one file (chmod +x, then run)
 #   McpClientUI-<tag>-linux-x64.tar.gz  the same Linux build as a folder
 name: Release
@@ -20,12 +22,37 @@ jobs:
       matrix:
         rid: [osx-arm64, osx-x64]
     runs-on: macos-latest
+    env:
+      SIGNING: ${{ secrets.MACOS_CERTIFICATE_P12 != '' }}
+      NOTARIZING: ${{ secrets.MACOS_CERTIFICATE_P12 != '' && secrets.NOTARY_KEY_P8 != '' }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      # The Developer ID certificate goes into a temporary keychain that is deleted with the runner.
+      - name: Import the signing certificate
+        if: env.SIGNING == 'true'
+        env:
+          CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password=$(openssl rand -base64 24)
+          echo "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/certificate.p12"
+          identity=$(security find-identity -v -p codesigning "$keychain" | grep "Developer ID Application" | grep "$TEAM_ID" | head -1 | sed -E 's/.*"(.*)"/\1/')
+          test -n "$identity"
+          echo "SIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
 
       - name: Publish and package
         run: |
@@ -35,6 +62,25 @@ jobs:
             -p:Version=$version -o publish/McpClientUI
           bash src/McpClientUI.Avalonia/macOS/package-app.sh publish/McpClientUI "$version" publish
           ditto -c -k --keepParent "publish/MCP Client.app" "McpClientUI-${{ github.ref_name }}-${{ matrix.rid }}.zip"
+
+      # Apple checks the signed app; stapling attaches the ticket so it opens without a network check.
+      - name: Notarize
+        if: env.NOTARIZING == 'true'
+        env:
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: |
+          zip="McpClientUI-${{ github.ref_name }}-${{ matrix.rid }}.zip"
+          echo "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          xcrun notarytool submit "$zip" --key "$RUNNER_TEMP/notary.p8" --key-id "$NOTARY_KEY_ID" \
+            --issuer "$NOTARY_ISSUER_ID" --wait --timeout 30m
+          rm "$RUNNER_TEMP/notary.p8"
+          xcrun stapler staple "publish/MCP Client.app"
+          xcrun stapler validate "publish/MCP Client.app"
+          spctl --assess --type execute --verbose "publish/MCP Client.app"
+          rm "$zip"
+          ditto -c -k --keepParent "publish/MCP Client.app" "$zip"
 
       - uses: actions/upload-artifact@v4
         with:
