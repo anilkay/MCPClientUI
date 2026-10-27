@@ -2,6 +2,8 @@
 #   McpClientUI-<tag>-win-x64.zip       the Windows app, a self-contained single-file exe
 #   McpClientUI-<tag>-osx-arm64.zip     "MCP Client.app" for Apple Silicon Macs
 #   McpClientUI-<tag>-osx-x64.zip       "MCP Client.app" for Intel Macs
+#   McpClientUI-<tag>-x86_64.AppImage   the Linux app as one file (chmod +x, then run)
+#   McpClientUI-<tag>-linux-x64.tar.gz  the same Linux build as a folder
 name: Release
 
 on:
@@ -39,8 +41,35 @@ jobs:
           name: ${{ matrix.rid }}
           path: McpClientUI-*.zip
 
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish and package
+        run: |
+          version='${{ github.ref_name }}'
+          version=${version#v}
+          dotnet publish src/McpClientUI.Avalonia -c Release -r linux-x64 --self-contained \
+            -p:Version=$version -o publish/McpClientUI
+          tar -czf "McpClientUI-${{ github.ref_name }}-linux-x64.tar.gz" -C publish McpClientUI
+          bash src/McpClientUI.Avalonia/linux/get-appimagetool.sh
+          APPIMAGETOOL=$PWD/appimagetool APPIMAGE_RUNTIME=$PWD/runtime-x86_64 \
+            bash src/McpClientUI.Avalonia/linux/package-appimage.sh publish/McpClientUI "$version" "McpClientUI-${{ github.ref_name }}-x86_64.AppImage"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: |
+            McpClientUI-*.tar.gz
+            McpClientUI-*.AppImage
+
   release:
-    needs: macos
+    needs: [macos, linux]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,4 +101,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" (Get-ChildItem McpClientUI-*.zip).FullName --title "${{ github.ref_name }}" --generate-notes
+          gh release create "${{ github.ref_name }}" (Get-ChildItem McpClientUI-*.zip, McpClientUI-*.tar.gz, McpClientUI-*.AppImage).FullName --title "${{ github.ref_name }}" --generate-notes

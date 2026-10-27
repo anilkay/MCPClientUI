@@ -1,6 +1,6 @@
 # Builds on every push and pull request so a broken main is caught before a release:
-# the whole solution on Windows, and on macOS the Avalonia app packaged as "MCP Client.app"
-# and opened the way a double click does.
+# the whole solution on Windows; on macOS the Avalonia app packaged as "MCP Client.app" and
+# opened the way a double click does; on Linux the AppImage, run on a virtual display.
 name: Build
 
 on:
@@ -48,3 +48,34 @@ jobs:
         with:
           name: McpClientUI-osx-arm64-app
           path: McpClientUI-osx-arm64.zip
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build
+        run: dotnet build src/McpClientUI.Avalonia -c Release -warnaserror
+
+      - name: Package the AppImage and run it
+        run: |
+          dotnet publish src/McpClientUI.Avalonia -c Release -r linux-x64 --self-contained -o publish/McpClientUI
+          bash src/McpClientUI.Avalonia/linux/get-appimagetool.sh
+          APPIMAGETOOL=$PWD/appimagetool APPIMAGE_RUNTIME=$PWD/runtime-x86_64 \
+            bash src/McpClientUI.Avalonia/linux/package-appimage.sh publish/McpClientUI 0.0.0 McpClientUI-x86_64.AppImage
+          command -v xvfb-run || sudo apt-get install -y xvfb
+          # On a virtual display; killed by the timeout (124) means it was still running after 15 s.
+          code=0
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a timeout 15 ./McpClientUI-x86_64.AppImage || code=$?
+          echo "exit code $code"
+          test "$code" -eq 124
+
+      # The AppImage, to try on a Linux desktop before a release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: McpClientUI-linux-appimage
+          path: McpClientUI-x86_64.AppImage

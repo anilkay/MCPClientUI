@@ -2,11 +2,11 @@
 
 # MCP Client
 
-A small desktop app for trying out MCP servers, over Streamable HTTP or stdio, for **Windows** and **macOS**.
+A small desktop app for trying out MCP servers, over Streamable HTTP or stdio, for **Windows**, **macOS** and **Linux**.
 Built on the official [ModelContextProtocol](https://github.com/modelcontextprotocol/csharp-sdk) C# SDK.
 
 - **Windows**: a Windows Forms app with a Windows 11 look (`src/McpClientUI`).
-- **macOS** (and Linux): the same features in an Avalonia app (`src/McpClientUI.Avalonia`).
+- **macOS** and **Linux**: the same features in an Avalonia app (`src/McpClientUI.Avalonia`).
 - Both are thin UIs over `src/McpClientUI.Core`: connecting, listing, calling, argument fields from the
   JSON schema, history, saved values and encrypted headers.
 
@@ -56,6 +56,22 @@ xattr -dr com.apple.quarantine "/Applications/MCP Client.app"
 Stdio servers started from the app find tools installed with Homebrew, npm or pip (`npx`, `uvx`, `node`, `python`):
 the app adds `/opt/homebrew/bin`, `/usr/local/bin` and `~/.local/bin` to the PATH, which a Finder launch doesn't have.
 
+## Linux
+
+Download `McpClientUI-<version>-x86_64.AppImage` from the [releases](https://github.com/anilkay/MCPClientUI/releases),
+make it executable and run it:
+
+```bash
+chmod +x McpClientUI-*-x86_64.AppImage
+./McpClientUI-*-x86_64.AppImage
+```
+
+If your distribution has no FUSE 2 (`libfuse2`), start it with `APPIMAGE_EXTRACT_AND_RUN=1`, or use
+`McpClientUI-<version>-linux-x64.tar.gz` instead: unpack it and run `McpClientUI/McpClientUI.Avalonia`.
+Settings, history and the encrypted headers are kept in `~/.config/McpClientUI`.
+
+## Screenshots of the Avalonia app
+
 | Avalonia app (dark) | Prompts |
 | --- | --- |
 | ![Avalonia app, dark theme](docs/avalonia-dark.png) | ![Avalonia app, a prompt](docs/avalonia-prompt.png) |
@@ -97,9 +113,12 @@ It pushes a `v0.1.0` tag; `.github/workflows/release.yml` then attaches to the
 - `McpClientUI-<tag>-win-x64.zip`: the Windows app, a self-contained single-file `McpClientUI.exe` (no .NET install needed, ~47 MB).
 - `McpClientUI-<tag>-osx-arm64.zip` and `-osx-x64.zip`: **MCP Client.app** for Apple Silicon and Intel Macs,
   packaged by `src/McpClientUI.Avalonia/macOS/package-app.sh`.
+- `McpClientUI-<tag>-x86_64.AppImage` and `-linux-x64.tar.gz`: the Linux app, packaged by
+  `src/McpClientUI.Avalonia/linux/package-appimage.sh`.
 
-The build workflow also packages the Mac app on every push and opens it on a macOS runner; its
-`McpClientUI-osx-arm64-app` artifact lets you try a build before releasing it.
+The build workflow also packages the Mac app and the AppImage on every push and starts them on macOS
+and Linux runners; the `McpClientUI-osx-arm64-app` and `McpClientUI-linux-appimage` artifacts let you
+try a build before releasing it.
 
 ## Build options
 
