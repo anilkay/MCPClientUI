@@ -1,0 +1,9 @@
+<Project>
+
+  <!-- Runtime async (.NET 11): async methods are compiled to run on the runtime's own async support
+       instead of compiler-generated state machines. Delete this line to switch it off again. -->
+  <PropertyGroup>
+    <Features>$(Features);runtime-async=on</Features>
+  </PropertyGroup>
+
+</Project>
