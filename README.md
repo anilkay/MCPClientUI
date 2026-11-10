@@ -119,7 +119,7 @@ When the server can't be reached, the reason is shown in place:
 
 ## Requirements
 
-- To build: the .NET 10 SDK (Windows for the WinForms app; any OS for the Avalonia app).
+- To build: the .NET 11 SDK (Windows for the WinForms app; any OS for the Avalonia app).
 - An MCP server: Streamable HTTP (for example the one WindowsUtils starts from its AI Chat screen) or stdio.
 
 ## Releases
@@ -148,7 +148,7 @@ try a build before releasing it.
 | Build | Size | Needs | Command |
 | --- | --- | --- | --- |
 | Self-contained single file (what releases ship) | ~47 MB exe | nothing | `dotnet publish src/McpClientUI/McpClientUI.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish` |
-| Framework-dependent single file | ~2.4 MB exe (~0.8 MB zipped) | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | `dotnet publish src/McpClientUI/McpClientUI.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=none -o publish` |
+| Framework-dependent single file | ~2.4 MB exe (~0.8 MB zipped) | [.NET 11 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/11.0) | `dotnet publish src/McpClientUI/McpClientUI.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=none -o publish` |
 
 The self-contained build can't get much smaller: Windows Forms doesn't support trimming, and the
 single file is already compressed.

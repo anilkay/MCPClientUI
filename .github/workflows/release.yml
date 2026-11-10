@@ -31,7 +31,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       # The Developer ID certificate goes into a temporary keychain that is deleted with the runner.
       - name: Import the signing certificate
@@ -95,7 +95,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       - name: Publish and package
         run: |
@@ -125,7 +125,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.x'
 
       - name: Publish the Windows app
         run: >

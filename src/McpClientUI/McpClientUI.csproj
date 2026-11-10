@@ -3,7 +3,7 @@
   <!-- The Windows app (WinForms, Windows 11 look). The logic it shares with the Avalonia app is in McpClientUI.Core. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <TargetFramework>net11.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
