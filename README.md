@@ -72,8 +72,17 @@ the app adds `/opt/homebrew/bin`, `/usr/local/bin` and `~/.local/bin` to the PAT
 
 ## Linux
 
-Download `McpClientUI-<version>-x86_64.AppImage` from the [releases](https://github.com/anilkay/MCPClientUI/releases),
-make it executable and run it:
+**Ubuntu and Debian:** download `McpClientUI-<version>-amd64.deb` from the
+[releases](https://github.com/anilkay/MCPClientUI/releases) and double-click it (App Center installs it), or run
+
+```bash
+sudo apt install ./McpClientUI-*-amd64.deb
+```
+
+**MCP Client** then shows up in the application menu with its logo (and as the `mcpclientui` command);
+`sudo apt remove mcpclientui` uninstalls it.
+
+**Any distribution:** download `McpClientUI-<version>-x86_64.AppImage` instead, make it executable and run it:
 
 ```bash
 chmod +x McpClientUI-*-x86_64.AppImage
@@ -127,11 +136,11 @@ It pushes a `v0.1.0` tag; `.github/workflows/release.yml` then attaches to the
 - `McpClientUI-<tag>-win-x64.zip`: the Windows app, a self-contained single-file `McpClientUI.exe` (no .NET install needed, ~47 MB).
 - `McpClientUI-<tag>-osx-arm64.zip` and `-osx-x64.zip`: **MCP Client.app** for Apple Silicon and Intel Macs,
   packaged by `src/McpClientUI.Avalonia/macOS/package-app.sh`.
-- `McpClientUI-<tag>-x86_64.AppImage` and `-linux-x64.tar.gz`: the Linux app, packaged by
-  `src/McpClientUI.Avalonia/linux/package-appimage.sh`.
+- `McpClientUI-<tag>-amd64.deb`, `-x86_64.AppImage` and `-linux-x64.tar.gz`: the Linux app, packaged by
+  `src/McpClientUI.Avalonia/linux/package-deb.sh` and `package-appimage.sh`.
 
-The build workflow also packages the Mac app and the AppImage on every push and starts them on macOS
-and Linux runners; the `McpClientUI-osx-arm64-app` and `McpClientUI-linux-appimage` artifacts let you
+The build workflow also packages the Mac app, the AppImage and the .deb on every push and starts them on macOS
+and Linux runners; the `McpClientUI-osx-arm64-app` and `McpClientUI-linux` artifacts let you
 try a build before releasing it.
 
 ## Build options

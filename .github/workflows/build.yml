@@ -1,6 +1,6 @@
 # Builds on every push and pull request so a broken main is caught before a release:
 # the whole solution on Windows; on macOS the Avalonia app packaged as "MCP Client.app" and
-# opened the way a double click does; on Linux the AppImage, run on a virtual display.
+# opened the way a double click does; on Linux the AppImage and the .deb, run on a virtual display.
 name: Build
 
 on:
@@ -74,8 +74,21 @@ jobs:
           echo "exit code $code"
           test "$code" -eq 124
 
-      # The AppImage, to try on a Linux desktop before a release.
+      - name: Package the .deb, install it and run it
+        run: |
+          bash src/McpClientUI.Avalonia/linux/package-deb.sh publish/McpClientUI 0.0.0 McpClientUI-amd64.deb
+          dpkg-deb --info McpClientUI-amd64.deb
+          dpkg-deb --contents McpClientUI-amd64.deb | grep -E "mcpclientui.desktop|McpClientUI.Avalonia$"
+          sudo apt-get install -y ./McpClientUI-amd64.deb
+          code=0
+          xvfb-run -a timeout 15 mcpclientui || code=$?
+          echo "exit code $code"
+          test "$code" -eq 124
+
+      # The AppImage and the .deb, to try on a Linux desktop before a release.
       - uses: actions/upload-artifact@v4
         with:
-          name: McpClientUI-linux-appimage
-          path: McpClientUI-x86_64.AppImage
+          name: McpClientUI-linux
+          path: |
+            McpClientUI-x86_64.AppImage
+            McpClientUI-amd64.deb
